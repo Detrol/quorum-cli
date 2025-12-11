@@ -1,0 +1,53 @@
+#!/bin/bash
+# Fast Quorum launcher - bypasses uv entirely
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
+
+# Check if Python venv exists (install.sh must be run first)
+if [ ! -f "$SCRIPT_DIR/.venv/bin/python" ]; then
+    echo ""
+    echo "[ERROR] Quorum is not installed."
+    echo ""
+    echo "Please run install.sh first:"
+    echo "  ./install.sh"
+    echo ""
+    exit 1
+fi
+
+# Check if compiled JS exists
+if [ ! -f "$FRONTEND_DIR/dist/index.js" ]; then
+    echo "Building frontend..."
+    cd "$FRONTEND_DIR" && npm run build
+fi
+
+# Signal file for spinner coordination
+SIGNAL_FILE="/tmp/quorum-ready-$$"
+export QUORUM_SIGNAL_FILE="$SIGNAL_FILE"
+
+# Cleanup on exit
+cleanup() {
+    rm -f "$SIGNAL_FILE"
+}
+trap cleanup EXIT
+
+# Animated spinner that stops when signal file appears
+(
+    frames=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+    i=0
+    while [ ! -f "$SIGNAL_FILE" ]; do
+        printf "\r\033[32m${frames[$i]} Starting Quorum...\033[0m"
+        i=$(( (i + 1) % 10 ))
+        sleep 0.08
+    done
+    # Clear spinner line when done
+    printf "\r\033[K"
+) &
+SPINNER_PID=$!
+
+# Run Node
+node "$FRONTEND_DIR/dist/index.js"
+
+# Cleanup spinner if still running
+kill $SPINNER_PID 2>/dev/null
+wait $SPINNER_PID 2>/dev/null

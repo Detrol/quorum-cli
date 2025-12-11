@@ -1,0 +1,33 @@
+{
+  "name": "quorum-frontend",
+  "version": "1.0.0",
+  "description": "Terminal UI for Quorum multi-agent consensus system",
+  "license": "BSL-1.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "quorum-ui": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "immer": "11.0.1",
+    "ink": "5.0.1",
+    "pdfkit": "0.16.0",
+    "react": "18.3.1",
+    "uuid": "10.0.0",
+    "zustand": "5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.0.0",
+    "@types/pdfkit": "0.13.8",
+    "@types/react": "18.3.12",
+    "@types/uuid": "10.0.0",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  }
+}
