@@ -12,9 +12,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, AsyncIterator, Callable, TypeVar
 
-from autogen_core.models import SystemMessage, UserMessage
-
 from ..agents import _make_valid_identifier
+from ..clients import SystemMessage, UserMessage
 from ..config import get_settings
 from ..constants import (
     ERROR_MESSAGE_MAX_LENGTH,

@@ -5,9 +5,8 @@ from __future__ import annotations
 from collections import deque
 from typing import AsyncIterator
 
-from autogen_core.models import SystemMessage, UserMessage
-
 from ..agents import get_language_instruction, get_oxford_prompt
+from ..clients import SystemMessage, UserMessage
 from ..constants import MAX_DISCUSSION_HISTORY_MESSAGES
 from ..models import extract_api_error, get_pooled_client
 from .base import (

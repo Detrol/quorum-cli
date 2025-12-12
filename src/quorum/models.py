@@ -1,4 +1,8 @@
-"""Model client factory for AutoGen."""
+"""Model client factory for AI providers.
+
+Provides unified client creation and connection pooling for multiple
+AI providers: OpenAI, Anthropic, Google, xAI, and Ollama.
+"""
 
 from __future__ import annotations
 
@@ -7,11 +11,8 @@ import atexit
 import logging
 import re
 from collections import OrderedDict
-from typing import Protocol, runtime_checkable
 
-from autogen_core.models import ModelFamily
-from autogen_ext.models.openai import OpenAIChatCompletionClient
-
+from .clients import AnthropicClient, ChatClient, OpenAIClient, UserMessage
 from .config import get_settings
 from .constants import (
     HTTP_CONNECT_TIMEOUT,
@@ -70,13 +71,6 @@ async def _close_http_client() -> None:
         _shared_http_client = None
 
 
-@runtime_checkable
-class ChatCompletionClient(Protocol):
-    """Protocol for chat completion clients."""
-
-    async def create(self, messages: list) -> object: ...
-
-
 class ClientPool:
     """Pool of reusable model clients to avoid connection overhead.
 
@@ -92,7 +86,7 @@ class ClientPool:
 
     def __init__(self):
         # OrderedDict provides O(1) LRU operations via move_to_end() and popitem()
-        self._clients: OrderedDict[str, ChatCompletionClient] = OrderedDict()
+        self._clients: OrderedDict[str, ChatClient] = OrderedDict()
         # Register atexit handler for cleanup on shutdown
         atexit.register(self._cleanup_sync)
 
@@ -140,7 +134,7 @@ class ClientPool:
             cls._instance = ClientPool()
         return cls._instance
 
-    async def get_client(self, model_id: str) -> ChatCompletionClient:
+    async def get_client(self, model_id: str) -> ChatClient:
         """Get or create a client for the given model.
 
         Args:
@@ -210,75 +204,7 @@ class ClientPool:
 _pool = ClientPool.get_instance()
 
 
-def _get_openai_model_info(model_id: str) -> dict:
-    """Get model_info for OpenAI models."""
-    model_lower = model_id.lower()
-
-    # O-series models (reasoning models)
-    if model_lower.startswith(("o1", "o3", "o4")):
-        return {
-            "vision": False,
-            "function_calling": True,
-            "json_output": True,
-            "structured_output": True,
-            "family": ModelFamily.O1,
-        }
-
-    # GPT-4 series with vision
-    if "gpt-4" in model_lower and "vision" not in model_lower:
-        return {
-            "vision": True,
-            "function_calling": True,
-            "json_output": True,
-            "structured_output": True,
-            "family": ModelFamily.GPT_4O,
-        }
-
-    # Default for other GPT models
-    return {
-        "vision": False,
-        "function_calling": True,
-        "json_output": True,
-        "structured_output": True,
-        "family": ModelFamily.GPT_4O,
-    }
-
-
-def _get_gemini_model_info(model_id: str) -> dict:
-    """Get model_info for Gemini models via OpenAI-compatible API."""
-    return {
-        "vision": True,
-        "function_calling": True,
-        "json_output": True,
-        "structured_output": True,
-        "family": ModelFamily.UNKNOWN,
-    }
-
-
-def _get_grok_model_info(model_id: str) -> dict:
-    """Get model_info for Grok models via OpenAI-compatible API."""
-    return {
-        "vision": False,
-        "function_calling": True,
-        "json_output": True,
-        "structured_output": True,
-        "family": ModelFamily.UNKNOWN,
-    }
-
-
-def _get_ollama_model_info(model_id: str) -> dict:
-    """Get model_info for Ollama models via OpenAI-compatible API."""
-    # Most Ollama models are text-only without advanced features
-    return {
-        "vision": False,
-        "function_calling": False,  # Varies by model, default conservative
-        "json_output": True,
-        "structured_output": False,
-        "family": ModelFamily.UNKNOWN,
-    }
-
-
-def _create_model_client_internal(model_id: str) -> ChatCompletionClient:
+def _create_model_client_internal(model_id: str) -> ChatClient:
     """Create the appropriate model client based on model ID (internal use).
 
     Args:
@@ -310,10 +236,9 @@ def _create_model_client_internal(model_id: str) -> ChatCompletionClient:
     if provider == "openai":
         if not settings.has_openai:
             raise ValueError("OpenAI API key not configured. Set OPENAI_API_KEY in .env")
-        return OpenAIChatCompletionClient(
+        return OpenAIClient(
             model=model_id,
             api_key=settings.openai_api_key,
-            model_info=_get_openai_model_info(model_id),
             http_client=_get_http_client(),
         )
 
@@ -322,10 +247,7 @@ def _create_model_client_internal(model_id: str) -> ChatCompletionClient:
             raise ValueError(
                 "Anthropic API key not configured. Set ANTHROPIC_API_KEY in .env"
             )
-        # Import here to avoid import errors if anthropic is not installed
-        from autogen_ext.models.anthropic import AnthropicChatCompletionClient
-
-        return AnthropicChatCompletionClient(
+        return AnthropicClient(
             model=model_id,
             api_key=settings.anthropic_api_key,
         )
@@ -334,11 +256,10 @@ def _create_model_client_internal(model_id: str) -> ChatCompletionClient:
         if not settings.has_google:
             raise ValueError("Google API key not configured. Set GOOGLE_API_KEY in .env")
         # Gemini uses OpenAI-compatible API
-        return OpenAIChatCompletionClient(
+        return OpenAIClient(
             model=model_id,
             api_key=settings.google_api_key,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            model_info=_get_gemini_model_info(model_id),
             http_client=_get_http_client(),
         )
 
@@ -346,11 +267,10 @@ def _create_model_client_internal(model_id: str) -> ChatCompletionClient:
         if not settings.has_xai:
             raise ValueError("xAI API key not configured. Set XAI_API_KEY in .env")
         # Grok uses OpenAI-compatible API
-        return OpenAIChatCompletionClient(
+        return OpenAIClient(
             model=model_id,
             api_key=settings.xai_api_key,
             base_url="https://api.x.ai/v1",
-            model_info=_get_grok_model_info(model_id),
             http_client=_get_http_client(),
         )
 
@@ -358,18 +278,17 @@ def _create_model_client_internal(model_id: str) -> ChatCompletionClient:
         # Strip "ollama:" prefix to get actual model name for Ollama API
         actual_model = model_id.split(":", 1)[1] if ":" in model_id else model_id
         # Ollama uses OpenAI-compatible API at /v1
-        return OpenAIChatCompletionClient(
+        return OpenAIClient(
             model=actual_model,
             api_key=settings.ollama_api_key or "ollama",  # Ollama ignores API key locally
             base_url=f"{settings.ollama_base_url}/v1",
-            model_info=_get_ollama_model_info(model_id),
             http_client=_get_http_client(),
         )
 
     raise ValueError(f"Unsupported provider: {provider}")
 
 
-async def get_pooled_client(model_id: str) -> ChatCompletionClient:
+async def get_pooled_client(model_id: str) -> ChatClient:
     """Get a reusable client from the pool.
 
     This reuses HTTP connections for efficiency.
@@ -533,8 +452,6 @@ async def validate_model(model_id: str, timeout: float | None = None) -> tuple[b
         client = await get_pooled_client(model_id)
 
         # Minimal test - just check the model responds
-        from autogen_core.models import UserMessage
-
         await asyncio.wait_for(
             client.create(messages=[UserMessage(content="Hi", source="validation")]),
             timeout=timeout

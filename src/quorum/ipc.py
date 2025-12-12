@@ -2,7 +2,7 @@
 
 Communicates with frontend via stdin/stdout using NDJSON (newline-delimited JSON).
 
-NOTE: Heavy imports (autogen, team, models) are done lazily inside handlers
+NOTE: Heavy imports (team, models) are done lazily inside handlers
 to minimize startup time. Only stdlib + light deps imported at top level.
 """
 
@@ -31,7 +31,6 @@ from .constants import (
 )
 
 # Lazy imports - these are heavy and slow down startup
-# from autogen_agentchat.base import TaskResult
 # from .team import FourPhaseConsensusTeam, etc.
 
 # === Input Validation Constants ===
@@ -788,7 +787,7 @@ class IPCHandler:
         self._current_discussion_id = str(uuid.uuid4())
 
         try:
-            # Lazy import - this is the heavy one (loads autogen)
+            # Lazy import - loads team module with pydantic
             from .agents import validate_method_model_count
             from .team import FourPhaseConsensusTeam
 
@@ -883,8 +882,6 @@ class IPCHandler:
             Tuple of (event_name, params_dict) or None if message should be skipped.
         """
         # Lazy imports for type checking (already loaded by run_discussion)
-        from autogen_agentchat.base import TaskResult
-
         from .team import (
             CritiqueResponse,
             FinalPosition,
@@ -896,12 +893,7 @@ class IPCHandler:
             ThinkingIndicator,
         )
 
-        if isinstance(message, TaskResult):
-            return ("discussion_complete", {
-                "messages_count": len(message.messages) if message.messages else 0
-            })
-
-        elif isinstance(message, ThinkingIndicator):
+        if isinstance(message, ThinkingIndicator):
             return ("thinking", {"model": message.model})
 
         elif isinstance(message, ThinkingComplete):
@@ -1111,9 +1103,8 @@ class IPCHandler:
             }
         """
 
-        from autogen_core.models import SystemMessage, UserMessage
-
         from .agents import get_method_advisor_prompt
+        from .clients import SystemMessage, UserMessage
         from .config import get_validated_models_cache
         from .models import get_pooled_client
 
@@ -1152,12 +1143,8 @@ class IPCHandler:
             timeout=MODEL_TIMEOUT_SECONDS
         )
 
-        # Extract response content
-        response_text = response.content
-        if hasattr(response, "content") and isinstance(response.content, str):
-            response_text = response.content
-        elif hasattr(response, "choices"):
-            response_text = response.choices[0].message.content
+        # Response is already a string from our client
+        response_text = response
 
         # Parse JSON response with schema validation
         recommendations = self._parse_advisor_response(response_text)
@@ -1269,7 +1256,7 @@ class IPCHandler:
 def _prewarm_imports() -> None:
     """Pre-load heavy modules during idle time.
 
-    Importing autogen and team modules is slow (~1-2s first time).
+    Importing team modules is slow (~0.5-1s first time due to pydantic).
     By doing this at startup, the first discussion starts faster.
     """
     # These are the heavy imports that slow down the first discussion

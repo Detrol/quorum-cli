@@ -8,8 +8,6 @@ import re
 from collections import deque
 from typing import AsyncIterator
 
-from autogen_core.models import SystemMessage, UserMessage
-
 from ..agents import (
     _make_valid_identifier,
     get_critique_prompt,
@@ -18,6 +16,7 @@ from ..agents import (
     get_standard_discussion_prompt,
     get_synthesis_prompt,
 )
+from ..clients import SystemMessage, UserMessage
 from ..constants import (
     CRITIQUE_ERROR_MAX_LENGTH,
     MAX_DISCUSSION_HISTORY_MESSAGES,

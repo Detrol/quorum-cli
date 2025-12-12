@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-Multi-agent AI discussion system using AutoGen. Ask multiple AI models (Claude, GPT, Gemini, Grok, and local models via Ollama) a question and let them debate, brainstorm, or deliberate using seven different methods.
+Multi-agent AI discussion system for structured debates. Ask multiple AI models (Claude, GPT, Gemini, Grok, and local models via Ollama) a question and let them debate, brainstorm, or deliberate using seven different methods.
 
 ## Requirements
 

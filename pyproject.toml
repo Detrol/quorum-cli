@@ -1,13 +1,13 @@
 [project]
 name = "quorum-cli"
 dynamic = ["version"]
-description = "Multi-agent AI discussion system using AutoGen"
+description = "Multi-agent AI discussion system for structured debates"
 readme = "README.md"
 license = {text = "BSL-1.1"}
 authors = [
     {name = "Detrol", email = "andreas.thun@gmail.com"}
 ]
-keywords = ["ai", "multi-agent", "discussion", "autogen", "llm", "debate", "brainstorm", "deliberation"]
+keywords = ["ai", "multi-agent", "discussion", "llm", "debate", "brainstorm", "deliberation", "consensus"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -21,8 +21,6 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "autogen-agentchat>=0.4,<0.5",
-    "autogen-ext[openai,anthropic]>=0.4,<0.5",
     "openai>=1.0,<2.0",
     "anthropic>=0.40,<1.0",
     "google-genai>=1.0,<2.0",

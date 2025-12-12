@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+**Superseded by ADR-0003** (December 2025)
+
+AutoGen has been removed in favor of direct SDK usage. See [ADR-0003](0003-remove-autogen-direct-sdk.md) for details.
 
 ## Context
 

@@ -151,32 +151,3 @@ class TestUnknownProviderRejection:
         assert "openai" in str(exc_info.value)
 
 
-class TestModelInfoGeneration:
-    """Tests for model info helper functions."""
-
-    def test_openai_model_info_gpt4(self):
-        """GPT-4 models get correct capabilities."""
-        from quorum.models import _get_openai_model_info
-
-        info = _get_openai_model_info("gpt-4o")
-
-        assert info["function_calling"] is True
-        assert info["json_output"] is True
-
-    def test_openai_model_info_o_series(self):
-        """O-series models identified correctly."""
-        from quorum.models import _get_openai_model_info
-
-        for model in ["o1-preview", "o3-mini"]:
-            info = _get_openai_model_info(model)
-            assert info["vision"] is False  # O-series doesn't have vision
-
-    def test_ollama_model_info_conservative(self):
-        """Ollama models use conservative defaults."""
-        from quorum.models import _get_ollama_model_info
-
-        info = _get_ollama_model_info("ollama:llama3")
-
-        # Conservative defaults for unknown capabilities
-        assert info["function_calling"] is False
-        assert info["structured_output"] is False

@@ -7,7 +7,7 @@ Centralizes magic numbers, limits, and configuration values.
 # Version Information
 # =============================================================================
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 """Quorum application version."""
 
 PROTOCOL_VERSION = "1.0.0"

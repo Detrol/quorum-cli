@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, AsyncIterator
 
-from autogen_agentchat.base import TaskResult
-
 from .agents import _make_valid_identifier
 from .config import get_settings
 
@@ -202,7 +200,7 @@ class FourPhaseConsensusTeam:
 
     async def run_stream(
         self, task: str
-    ) -> AsyncIterator[ThinkingIndicator | PhaseMarker | IndependentAnswer | CritiqueResponse | TeamTextMessage | FinalPosition | SynthesisResult | TaskResult]:
+    ) -> AsyncIterator[ThinkingIndicator | PhaseMarker | IndependentAnswer | CritiqueResponse | TeamTextMessage | FinalPosition | SynthesisResult]:
         """Run the discussion and stream all messages.
 
         Dispatches to method-specific flows based on discussion_method.

@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- Changes after 1.0.1 release go here -->
+<!-- Changes after 1.0.2 release go here -->
+
+---
+
+## [1.0.2] - 2025-12-12
+
+### Changed
+
+- **Removed AutoGen dependency** - Replaced with direct SDK clients
+  - New `clients/` module with `OpenAIClient` and `AnthropicClient`
+  - ~50MB smaller install footprint
+  - Faster startup time
+  - No functional changes for users
+
+### Internal
+
+- Added `ChatClient` protocol for unified client interface
+- Created ADR-0003 documenting the AutoGen removal decision
+- Superseded ADR-0002 (AutoGen for orchestration)
 
 ---
 
@@ -30,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2025-12-10
 
-Initial release of Quorum - a multi-agent AI discussion system built on AutoGen.
+Initial release of Quorum - a multi-agent AI discussion system for structured debates.
 
 ### Discussion Methods
 
@@ -123,6 +141,7 @@ User cache (`~/.quorum/`):
 
 ---
 
-[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/Detrol/quorum-cli/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Detrol/quorum-cli/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Detrol/quorum-cli/releases/tag/v1.0.0
