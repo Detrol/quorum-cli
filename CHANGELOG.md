@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- Changes after 1.0.3 release go here -->
+<!-- Changes after 1.0.4 release go here -->
+
+---
+
+## [1.0.4] - 2025-12-12
+
+### Changed
+
+- **Ollama Model Discovery** - Non-generative models are now automatically filtered
+  - Embedding models (`nomic-embed-text`, `bge-m3`, etc.) are hidden from `/models`
+  - Whisper/speech-to-text models are also filtered
+  - Vision models (llava, gemma3, etc.) are NOT filtered - they can generate text
+  - Prevents users from selecting models that would fail with "does not support generate"
 
 ---
 
@@ -161,7 +173,8 @@ User cache (`~/.quorum/`):
 
 ---
 
-[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/Detrol/quorum-cli/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Detrol/quorum-cli/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Detrol/quorum-cli/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Detrol/quorum-cli/compare/v1.0.0...v1.0.1

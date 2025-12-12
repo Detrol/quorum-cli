@@ -7,6 +7,23 @@ from dataclasses import dataclass
 
 from .config import get_settings
 
+# Patterns for non-generative models that cannot participate in discussions
+# These models return vectors (embedding) or transcriptions (whisper), not chat responses
+NON_GENERATIVE_PATTERNS = ("embed", "bge-", "minilm", "paraphrase", "whisper")
+
+
+def _is_generative_model(name: str) -> bool:
+    """Check if model can generate text (not embedding/whisper).
+
+    Args:
+        name: Model name to check.
+
+    Returns:
+        True if model can generate text, False if it's embedding/whisper.
+    """
+    name_lower = name.lower()
+    return not any(pattern in name_lower for pattern in NON_GENERATIVE_PATTERNS)
+
 
 def format_display_name(model_id: str) -> str:
     """Generate a friendly display name from model ID.
@@ -196,6 +213,10 @@ async def discover_ollama_models(timeout: float = 5.0) -> list[tuple[str, str]]:
 
                 # Validate model name format
                 if len(name) > 100 or not model_name_pattern.match(name):
+                    continue
+
+                # Skip non-generative models (embedding, whisper)
+                if not _is_generative_model(name):
                     continue
 
                 model_id = f"ollama:{name}"

@@ -288,3 +288,97 @@ class TestDiscoverOllamaModels:
                 result = await discover_ollama_models()
 
                 assert result == []
+
+    @pytest.mark.asyncio
+    async def test_filters_out_embedding_models(self):
+        """Test that embedding models are filtered from results."""
+        from quorum.providers import discover_ollama_models
+
+        with patch("quorum.providers.get_settings") as mock_settings:
+            mock = MagicMock()
+            mock.has_ollama = True
+            mock.ollama_base_url = "http://localhost:11434"
+            mock.ollama_api_key = None
+            mock_settings.return_value = mock
+
+            # Mock response with mix of generative and embedding models
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json.return_value = {
+                "models": [
+                    {"name": "llama3"},              # OK - generative
+                    {"name": "nomic-embed-text"},   # FILTER - embedding
+                    {"name": "llava"},              # OK - vision (can generate)
+                    {"name": "bge-m3"},             # FILTER - embedding
+                    {"name": "all-minilm"},         # FILTER - embedding
+                    {"name": "whisper-tiny"},       # FILTER - speech-to-text
+                    {"name": "mistral:7b"},         # OK - generative
+                    {"name": "mxbai-embed-large"},  # FILTER - embedding
+                    {"name": "paraphrase-multilingual"},  # FILTER - embedding
+                ]
+            }
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
+
+                result = await discover_ollama_models()
+
+                # Should only return generative models
+                model_ids = [r[0] for r in result]
+                assert len(result) == 3
+                assert "ollama:llama3" in model_ids
+                assert "ollama:llava" in model_ids
+                assert "ollama:mistral:7b" in model_ids
+
+                # Should NOT include embedding/whisper models
+                assert "ollama:nomic-embed-text" not in model_ids
+                assert "ollama:bge-m3" not in model_ids
+                assert "ollama:all-minilm" not in model_ids
+                assert "ollama:whisper-tiny" not in model_ids
+                assert "ollama:mxbai-embed-large" not in model_ids
+                assert "ollama:paraphrase-multilingual" not in model_ids
+
+
+class TestIsGenerativeModel:
+    """Tests for _is_generative_model helper function."""
+
+    def test_generative_models_return_true(self):
+        """Test that generative models return True."""
+        from quorum.providers import _is_generative_model
+
+        assert _is_generative_model("llama3") is True
+        assert _is_generative_model("mistral:7b") is True
+        assert _is_generative_model("llava") is True
+        assert _is_generative_model("gemma3") is True
+        assert _is_generative_model("qwen2:72b") is True
+        assert _is_generative_model("codellama") is True
+
+    def test_embedding_models_return_false(self):
+        """Test that embedding models return False."""
+        from quorum.providers import _is_generative_model
+
+        assert _is_generative_model("nomic-embed-text") is False
+        assert _is_generative_model("mxbai-embed-large") is False
+        assert _is_generative_model("snowflake-arctic-embed") is False
+        assert _is_generative_model("bge-m3") is False
+        assert _is_generative_model("bge-large") is False
+        assert _is_generative_model("all-minilm") is False
+        assert _is_generative_model("paraphrase-multilingual") is False
+        assert _is_generative_model("qwen3-embedding") is False
+        assert _is_generative_model("granite-embedding") is False
+        assert _is_generative_model("embeddinggemma") is False
+
+    def test_whisper_models_return_false(self):
+        """Test that whisper/speech-to-text models return False."""
+        from quorum.providers import _is_generative_model
+
+        assert _is_generative_model("whisper-tiny") is False
+        assert _is_generative_model("whisper-large") is False
+
+    def test_case_insensitive(self):
+        """Test that pattern matching is case insensitive."""
+        from quorum.providers import _is_generative_model
+
+        assert _is_generative_model("NOMIC-EMBED-TEXT") is False
+        assert _is_generative_model("BGE-M3") is False
+        assert _is_generative_model("Whisper-Tiny") is False
