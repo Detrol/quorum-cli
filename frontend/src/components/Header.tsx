@@ -7,7 +7,7 @@ import { Box, Text } from "ink";
 import { useStore } from "../store/index.js";
 import { t } from "../i18n/index.js";
 
-const VERSION = "1.0.4";
+const VERSION = "1.0.5";
 
 export function Header() {
   const { selectedModels, discussionMethod, availableModels } = useStore();

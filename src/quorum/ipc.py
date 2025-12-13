@@ -1265,12 +1265,20 @@ def _prewarm_imports() -> None:
 
 
 async def run_ipc() -> None:
-    """Run the IPC handler, reading from stdin and writing to stdout."""
+    """Run the IPC handler, reading from stdin and writing to stdout.
+
+    Uses run_in_executor for stdin reading to ensure cross-platform compatibility.
+    Python's asyncio connect_read_pipe doesn't work on Windows:
+    - ProactorEventLoop: WinError 6 with pipe handles
+    - SelectorEventLoop: connect_read_pipe not implemented
+
+    The thread-based approach via run_in_executor works on all platforms.
+    """
     handler = IPCHandler()
+    loop = asyncio.get_event_loop()
 
     # Pre-warm heavy imports in background (non-blocking)
     # This speeds up the first discussion by ~1-2s
-    loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _prewarm_imports)
 
     # Send ready signal with protocol version
@@ -1279,21 +1287,20 @@ async def run_ipc() -> None:
         "protocol_version": PROTOCOL_VERSION,
     })
 
-    # Read lines from stdin
-    reader = asyncio.StreamReader()
-    protocol = asyncio.StreamReaderProtocol(reader)
-    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-
     # Track background tasks
     pending_tasks: set[asyncio.Task] = set()
 
     while True:
         try:
-            line = await reader.readline()
-            if not line:
+            # Read stdin in thread pool - works on all platforms
+            # sys.stdin.readline() blocks, but run_in_executor runs it in a thread
+            # so it doesn't block the asyncio event loop
+            line_str = await loop.run_in_executor(None, sys.stdin.readline)
+
+            if not line_str:
                 break  # EOF
 
-            line_str = line.decode("utf-8").strip()
+            line_str = line_str.strip()
             if not line_str:
                 continue
 

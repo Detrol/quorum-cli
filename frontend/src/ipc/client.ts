@@ -5,8 +5,16 @@
 import { spawn, ChildProcess } from "node:child_process";
 import { createInterface, Interface } from "node:readline";
 import { EventEmitter } from "node:events";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { v4 as uuidv4 } from "uuid";
+
+// Get project root directory from this file's location
+// This file is at: frontend/dist/ipc/client.js (after compilation)
+// Project root is 3 levels up: ../../../
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, "..", "..", "..");
 
 import type {
   JsonRpcRequest,
@@ -48,14 +56,14 @@ export class BackendClient extends EventEmitter {
     super();
 
     // Use venv Python directly - bypasses uv entirely
-    // Handle both Unix and Windows path separators
-    const projectDir = process.cwd().replace(/[/\\]frontend$/, "");
+    // PROJECT_ROOT is calculated from this file's location, not cwd
+    // This ensures it works regardless of where the user runs quorum from
 
     // Platform-specific venv Python path
     const isWindows = process.platform === "win32";
     const venvPython = isWindows
-      ? join(projectDir, ".venv", "Scripts", "python.exe")
-      : join(projectDir, ".venv", "bin", "python");
+      ? join(PROJECT_ROOT, ".venv", "Scripts", "python.exe")
+      : join(PROJECT_ROOT, ".venv", "bin", "python");
 
     this.pythonCommand = venvPython;
     this.pythonArgs = ["-m", "quorum", "--ipc"];
@@ -73,11 +81,10 @@ export class BackendClient extends EventEmitter {
       this.readyResolve = resolve;
     });
 
-    const projectDir = process.cwd().replace(/[/\\]frontend$/, "");
     this.process = spawn(this.pythonCommand, this.pythonArgs, {
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: projectDir,
-      env: { ...process.env, PYTHONPATH: join(projectDir, "src") },
+      cwd: PROJECT_ROOT,
+      env: { ...process.env, PYTHONPATH: join(PROJECT_ROOT, "src") },
     });
 
     this.process.on("error", (err) => {

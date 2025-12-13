@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- Changes after 1.0.4 release go here -->
+<!-- Changes after 1.0.5 release go here -->
+
+---
+
+## [1.0.5] - 2025-12-13
+
+### Fixed
+
+- **Windows Native Support** - Fixed critical issues preventing Windows .bat launcher from working
+  - Fixed `PROJECT_ROOT` detection in frontend using `import.meta.url` instead of `process.cwd()`
+  - Fixed Python asyncio stdin reading using `run_in_executor` (cross-platform)
+  - Python's `connect_read_pipe` doesn't work on Windows (ProactorEventLoop: WinError 6, SelectorEventLoop: NotImplementedError)
+  - Quorum now works correctly when launched from `quorum.bat` on Windows
 
 ---
 
