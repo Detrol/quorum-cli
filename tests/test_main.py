@@ -13,18 +13,20 @@ class TestArgumentParsing:
     def test_default_mode_is_ui(self):
         """Default mode (no args) launches UI."""
         with patch("sys.argv", ["quorum"]):
-            with patch("quorum.main._launch_ui") as mock_ui:
-                from quorum.main import main
-                main()
-                mock_ui.assert_called_once()
+            with patch("quorum.main._ensure_config", return_value=True):
+                with patch("quorum.main._launch_ui") as mock_ui:
+                    from quorum.main import main
+                    main()
+                    mock_ui.assert_called_once()
 
     def test_ui_flag_launches_ui(self):
         """--ui flag explicitly launches UI."""
         with patch("sys.argv", ["quorum", "--ui"]):
-            with patch("quorum.main._launch_ui") as mock_ui:
-                from quorum.main import main
-                main()
-                mock_ui.assert_called_once()
+            with patch("quorum.main._ensure_config", return_value=True):
+                with patch("quorum.main._launch_ui") as mock_ui:
+                    from quorum.main import main
+                    main()
+                    mock_ui.assert_called_once()
 
     def test_ipc_flag_launches_ipc(self):
         """--ipc flag launches IPC mode."""
