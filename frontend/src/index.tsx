@@ -5,17 +5,7 @@
 
 import React from "react";
 import { render } from "ink";
-import { writeFileSync } from "node:fs";
 import { App } from "./App.js";
-
-// Signal bash spinner to stop (if running via shell launcher)
-const signalFile = process.env.QUORUM_SIGNAL_FILE;
-if (signalFile) {
-  writeFileSync(signalFile, "ready");
-}
-
-// Clear screen
-process.stdout.write('\x1Bc');
 
 const { unmount, waitUntilExit } = render(<App />);
 

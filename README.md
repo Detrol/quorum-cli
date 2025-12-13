@@ -1,8 +1,21 @@
 # Quorum
 
-[![CI](https://github.com/Detrol/quorum-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Detrol/quorum-cli/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+<p align="center">
+  <img src="docs/demo.gif" alt="Quorum - AI models debating in terminal" width="700">
+</p>
+
+<p align="center">
+  <strong>AI War Room in your terminal.</strong><br>
+  Watch GPT, Claude, Gemini, and Grok debate using formal methods.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Detrol/quorum-cli/actions/workflows/ci.yml"><img src="https://github.com/Detrol/quorum-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL_1.1-blue.svg" alt="License"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
+</p>
+
+---
 
 Multi-agent AI discussion system for structured debates. Ask multiple AI models (Claude, GPT, Gemini, Grok, and local models via Ollama) a question and let them debate, brainstorm, or deliberate using seven different methods.
 

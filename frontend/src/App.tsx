@@ -4,6 +4,7 @@
 
 import React, { useEffect, useCallback, useState, useRef } from "react";
 import { Box, Text, useApp, useInput } from "ink";
+import { writeFileSync } from "node:fs";
 
 // Spinner component
 function Spinner({ text }: { text: string }) {
@@ -123,7 +124,6 @@ export function App() {
       try {
         // Start backend
         await backend.start();
-        setBackendReady(true);
 
         // Set callback for resuming backend from Discussion component
         setResumeBackend(() => backend.resumeDiscussion());
@@ -157,6 +157,16 @@ export function App() {
         if (userSettings.max_turns !== undefined) {
           setMaxTurns(userSettings.max_turns);
         }
+
+        // Settings loaded - show UI
+        setBackendReady(true);
+
+        // Signal shell spinner to stop and clear screen for UI
+        const signalFile = process.env.QUORUM_SIGNAL_FILE;
+        if (signalFile) {
+          writeFileSync(signalFile, "ready");
+        }
+        process.stdout.write('\x1Bc');
 
         // Mark cached validated models immediately
         const cachedValidated = new Set(modelsResult.validated || []);
@@ -687,14 +697,16 @@ export function App() {
     }
   });
 
-  // Render loading state
-  if (!backendReady || modelsValidating) {
-    let loadingText = t("app.loading.backend");
-    if (backendReady && modelsValidating && validationProgress) {
-      loadingText = t("app.loading.validating", { current: String(validationProgress.current), total: String(validationProgress.total) });
-    } else if (backendReady) {
-      loadingText = t("app.loading.models");
-    }
+  // Render nothing while backend starts (shell spinner handles this)
+  if (!backendReady) {
+    return null;
+  }
+
+  // Render loading state only for model validation
+  if (modelsValidating) {
+    const loadingText = validationProgress
+      ? t("app.loading.validating", { current: String(validationProgress.current), total: String(validationProgress.total) })
+      : t("app.loading.models");
     return (
       <Box flexDirection="column" padding={1}>
         <Spinner text={loadingText} />
