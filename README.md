@@ -26,7 +26,15 @@ pip install quorum-cli
 quorum
 ```
 
-That's it! Configure your API keys on first run or create a `.env` file.
+On first run, Quorum creates `~/.quorum/.env.example`. Copy and edit it:
+
+```bash
+cp ~/.quorum/.env.example ~/.quorum/.env
+nano ~/.quorum/.env  # Add your API keys
+quorum
+```
+
+**Upgrade:** `pip install -U quorum-cli`
 
 **Requirements:** Python 3.11+, Node.js 18+
 

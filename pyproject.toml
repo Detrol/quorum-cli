@@ -60,6 +60,7 @@ packages = ["src/quorum"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "frontend/dist" = "quorum/_frontend"
+".env.example" = "quorum/.env.example"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

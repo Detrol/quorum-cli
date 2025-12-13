@@ -40,6 +40,43 @@ def _setup_logging() -> None:
     quorum_logger.addHandler(file_handler)
 
 
+def _ensure_config() -> bool:
+    """Ensure ~/.quorum/.env exists. Returns True if config is ready."""
+    config_dir = Path.home() / ".quorum"
+    env_file = config_dir / ".env"
+
+    # If .env exists (either in ~/.quorum/ or current dir), we're good
+    if env_file.exists() or Path(".env").exists():
+        return True
+
+    # Create config directory
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy .env.example from package
+    package_example = Path(__file__).parent / ".env.example"
+    dest_example = config_dir / ".env.example"
+
+    if package_example.exists() and not dest_example.exists():
+        shutil.copy(package_example, dest_example)
+
+    # Show setup message
+    print()
+    print("\033[33m╭─────────────────────────────────────────────────────╮\033[0m")
+    print("\033[33m│\033[0m  \033[1mWelcome to Quorum!\033[0m                                \033[33m│\033[0m")
+    print("\033[33m├─────────────────────────────────────────────────────┤\033[0m")
+    print("\033[33m│\033[0m                                                     \033[33m│\033[0m")
+    print("\033[33m│\033[0m  Configuration needed. Please set up your API keys:\033[33m│\033[0m")
+    print("\033[33m│\033[0m                                                     \033[33m│\033[0m")
+    print(f"\033[33m│\033[0m    \033[36mcp {dest_example} {env_file}\033[0m")
+    print(f"\033[33m│\033[0m    \033[36mnano {env_file}\033[0m")
+    print("\033[33m│\033[0m                                                     \033[33m│\033[0m")
+    print("\033[33m│\033[0m  Add at least one API key, then run \033[32mquorum\033[0m again.  \033[33m│\033[0m")
+    print("\033[33m│\033[0m                                                     \033[33m│\033[0m")
+    print("\033[33m╰─────────────────────────────────────────────────────╯\033[0m")
+    print()
+    return False
+
+
 def main() -> None:
     """Start Quorum - UI, REPL, or IPC mode."""
     _setup_logging()
@@ -63,6 +100,9 @@ def main() -> None:
         from .ipc import run_ipc
         asyncio.run(run_ipc())
     else:
+        # Check config before launching UI
+        if not _ensure_config():
+            sys.exit(0)
         _launch_ui()
 
 

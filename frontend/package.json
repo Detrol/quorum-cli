@@ -1,6 +1,6 @@
 {
   "name": "quorum-frontend",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Terminal UI for Quorum multi-agent consensus system",
   "license": "BSL-1.1",
   "type": "module",

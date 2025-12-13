@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- Changes after 1.0.6 release go here -->
+<!-- Changes after 1.0.7 release go here -->
 
 ---
 
-## [1.0.6] - 2025-12-13
+## [1.0.7] - 2025-12-13
 
 ### Added
 
@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `pip install quorum-cli && quorum` now works out of the box
   - Frontend is bundled into the wheel automatically
   - GitHub Actions workflow for automated PyPI publishing with Trusted Publishing
+- **First-run Setup** - Automatic configuration setup for pip users
+  - Creates `~/.quorum/.env.example` on first run
+  - Shows friendly setup instructions
+  - Config loaded from `~/.quorum/.env` (no need to be in specific directory)
 
 ### Fixed
 
@@ -208,8 +212,8 @@ User cache (`~/.quorum/`):
 
 ---
 
-[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.6...HEAD
-[1.0.6]: https://github.com/Detrol/quorum-cli/compare/v1.0.5...v1.0.6
+[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/Detrol/quorum-cli/compare/v1.0.5...v1.0.7
 [1.0.5]: https://github.com/Detrol/quorum-cli/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Detrol/quorum-cli/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Detrol/quorum-cli/compare/v1.0.2...v1.0.3
