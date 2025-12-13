@@ -5,16 +5,7 @@
 import { spawn, ChildProcess } from "node:child_process";
 import { createInterface, Interface } from "node:readline";
 import { EventEmitter } from "node:events";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { v4 as uuidv4 } from "uuid";
-
-// Get project root directory from this file's location
-// This file is at: frontend/dist/ipc/client.js (after compilation)
-// Project root is 3 levels up: ../../../
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const PROJECT_ROOT = join(__dirname, "..", "..", "..");
 
 import type {
   JsonRpcRequest,
@@ -55,17 +46,9 @@ export class BackendClient extends EventEmitter {
   constructor() {
     super();
 
-    // Use venv Python directly - bypasses uv entirely
-    // PROJECT_ROOT is calculated from this file's location, not cwd
-    // This ensures it works regardless of where the user runs quorum from
-
-    // Platform-specific venv Python path
-    const isWindows = process.platform === "win32";
-    const venvPython = isWindows
-      ? join(PROJECT_ROOT, ".venv", "Scripts", "python.exe")
-      : join(PROJECT_ROOT, ".venv", "bin", "python");
-
-    this.pythonCommand = venvPython;
+    // Python tells us where it is via QUORUM_PYTHON env var (set by main.py)
+    // This works for both dev mode and pip install
+    this.pythonCommand = process.env.QUORUM_PYTHON || "python";
     this.pythonArgs = ["-m", "quorum", "--ipc"];
   }
 
@@ -83,8 +66,6 @@ export class BackendClient extends EventEmitter {
 
     this.process = spawn(this.pythonCommand, this.pythonArgs, {
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: PROJECT_ROOT,
-      env: { ...process.env, PYTHONPATH: join(PROJECT_ROOT, "src") },
     });
 
     this.process.on("error", (err) => {

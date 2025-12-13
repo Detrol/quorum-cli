@@ -19,14 +19,29 @@
 
 Multi-agent AI discussion system for structured debates. Ask multiple AI models (Claude, GPT, Gemini, Grok, and local models via Ollama) a question and let them debate, brainstorm, or deliberate using seven different methods.
 
-## Requirements
+## Quick Install (pip)
+
+```bash
+pip install quorum-cli
+quorum
+```
+
+That's it! Configure your API keys on first run or create a `.env` file.
+
+**Requirements:** Python 3.11+, Node.js 18+
+
+---
+
+## Development Installation
+
+For contributors or those who want the latest changes:
+
+### Requirements
 
 - Python 3.11 or higher
 - Node.js 18 or higher
 - npm
 - [uv](https://github.com/astral-sh/uv) (auto-installed if missing)
-
-## Installation
 
 ### Linux / macOS
 

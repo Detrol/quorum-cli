@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fast Quorum launcher - bypasses uv entirely
+# Quorum launcher - starts the terminal UI
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
@@ -21,6 +21,9 @@ if [ ! -f "$FRONTEND_DIR/dist/index.js" ]; then
     cd "$FRONTEND_DIR" && npm run build
 fi
 
+# Tell Node where Python is (so frontend can spawn backend)
+export QUORUM_PYTHON="$SCRIPT_DIR/.venv/bin/python"
+
 # Signal file for spinner coordination
 SIGNAL_FILE="/tmp/quorum-ready-$$"
 export QUORUM_SIGNAL_FILE="$SIGNAL_FILE"
@@ -40,7 +43,6 @@ trap cleanup EXIT
         i=$(( (i + 1) % 10 ))
         sleep 0.08
     done
-    # Clear spinner line when done
     printf "\r\033[K"
 ) &
 SPINNER_PID=$!

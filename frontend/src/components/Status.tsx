@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { useStore } from "../store/index.js";
 import { getModelDisplayName } from "./Message.js";
 import { t } from "../i18n/index.js";
@@ -15,7 +15,14 @@ export function Status() {
     discussionMethod,
     synthesizerMode,
     maxTurns,
+    setShowStatus,
   } = useStore();
+
+  useInput((input, key) => {
+    if (key.escape) {
+      setShowStatus(false);
+    }
+  });
 
   const modelNames = selectedModels.map((id) =>
     getModelDisplayName(id, availableModels)

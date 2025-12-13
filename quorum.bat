@@ -25,7 +25,10 @@ if not exist "%FRONTEND_DIR%\dist\index.js" (
     cd /d "%SCRIPT_DIR%"
 )
 
-REM Set signal file for spinner coordination (Windows temp)
+REM Tell Node where Python is (so frontend can spawn backend)
+set "QUORUM_PYTHON=%SCRIPT_DIR%.venv\Scripts\python.exe"
+
+REM Set signal file for spinner coordination
 set "QUORUM_SIGNAL_FILE=%TEMP%\quorum-ready-%RANDOM%"
 
 echo Starting Quorum...

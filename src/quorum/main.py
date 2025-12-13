@@ -4,13 +4,11 @@ import argparse
 import asyncio
 import logging
 import os
+import shutil
 import sys
-import warnings
 from pathlib import Path
 
-# Suppress AutoGen's verbose logging
-logging.getLogger("autogen_core").setLevel(logging.CRITICAL)
-logging.getLogger("autogen_agentchat").setLevel(logging.CRITICAL)
+# Suppress verbose logging from dependencies
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
@@ -18,9 +16,9 @@ def _setup_logging() -> None:
     """Configure logging to file for error tracking."""
     from logging.handlers import RotatingFileHandler
 
-    # Use logs/ directory in project root
-    log_dir = Path(__file__).parent.parent.parent / "logs"
-    log_dir.mkdir(exist_ok=True)
+    # Use ~/.quorum/logs/ for both dev and pip install
+    log_dir = Path.home() / ".quorum" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "quorum.log"
 
     # Rotating file handler: 1MB max, keep 3 backups
@@ -40,9 +38,6 @@ def _setup_logging() -> None:
     quorum_logger = logging.getLogger("quorum")
     quorum_logger.setLevel(logging.WARNING)
     quorum_logger.addHandler(file_handler)
-
-# Suppress warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="autogen_ext")
 
 
 def main() -> None:
@@ -71,32 +66,53 @@ def main() -> None:
         _launch_ui()
 
 
+def _get_frontend_dir() -> Path | None:
+    """Find frontend directory - works in both dev and pip install."""
+    # 1. Bundled frontend (pip install)
+    bundled = Path(__file__).parent / "_frontend"
+    if (bundled / "index.js").exists():
+        return bundled
+
+    # 2. Dev: prefer built dist if available
+    dev = Path(__file__).parent.parent.parent / "frontend"
+    if dev.exists():
+        if (dev / "dist" / "index.js").exists():
+            return dev / "dist"
+        return dev
+
+    return None
+
+
 def _launch_ui() -> None:
     """Launch the Ink-based UI."""
+    import subprocess
     import threading
     import time
 
-    frontend_dir = Path(__file__).parent.parent.parent / "frontend"
-
-    if not frontend_dir.exists():
-        print("Frontend not found. Run: cd frontend && npm install")
+    # Check Node.js is installed
+    if not shutil.which("node"):
+        print("Error: Node.js is required. Install from https://nodejs.org")
         sys.exit(1)
 
-    if not (frontend_dir / "node_modules").exists():
-        print("Frontend dependencies not installed. Run: cd frontend && npm install")
+    frontend_dir = _get_frontend_dir()
+    if not frontend_dir:
+        print("Frontend not found. Install with: pip install quorum-cli")
         sys.exit(1)
 
-    # Use compiled JS if available (much faster), otherwise fall back to tsx
-    dist_index = frontend_dir / "dist" / "index.js"
-    if dist_index.exists():
-        # Security: Validate dist/index.js is not a symlink (prevent path traversal)
-        if dist_index.is_symlink():
-            print("Error: dist/index.js is a symlink (security risk)")
+    # Determine how to run the frontend
+    index_js = frontend_dir / "index.js"
+    if index_js.exists():
+        # Bundled or dev with built dist - run directly
+        if index_js.is_symlink():
+            print("Error: index.js is a symlink (security risk)")
             sys.exit(1)
-        cmd = ["node", str(dist_index)]
+        cmd = ["node", str(index_js)]
     else:
+        # Dev mode without build - needs tsx
+        if not (frontend_dir / "node_modules").exists():
+            print("Run: cd frontend && npm install && npm run build")
+            sys.exit(1)
         tsx_path = frontend_dir / "node_modules" / ".bin" / "tsx"
-        # Security: tsx is normally a symlink - validate it points inside node_modules
         if tsx_path.is_symlink():
             try:
                 target = tsx_path.resolve()
@@ -105,10 +121,16 @@ def _launch_ui() -> None:
                 print("Error: tsx binary links outside node_modules (security risk)")
                 sys.exit(1)
         cmd = [str(tsx_path), "src/index.tsx"]
+        os.chdir(frontend_dir)
 
-    os.chdir(frontend_dir)
+    # Tell Node where Python is (so frontend can spawn backend)
+    os.environ["QUORUM_PYTHON"] = sys.executable
 
-    # Simple spinner - runs until we exec into node
+    # Signal file for spinner coordination
+    signal_file = Path(f"/tmp/quorum-ready-{os.getpid()}")
+    os.environ["QUORUM_SIGNAL_FILE"] = str(signal_file)
+
+    # Animated spinner in background thread
     spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
     stop_spinner = threading.Event()
 
@@ -119,17 +141,27 @@ def _launch_ui() -> None:
             print(f"\r\033[32m{frame} Starting Quorum...\033[0m", end="", flush=True)
             time.sleep(0.08)
             i += 1
+        print("\r\033[K", end="", flush=True)
 
     spinner_thread = threading.Thread(target=spin, daemon=True)
     spinner_thread.start()
 
-    # Replace current process with node (faster, no subprocess overhead)
-    # Clear spinner first
-    time.sleep(0.2)  # Brief spinner display
-    stop_spinner.set()
-    print("\r\033[K", end="", flush=True)
+    # Run Node (subprocess so we can keep spinner alive)
+    proc = subprocess.Popen(cmd)
 
-    os.execvp(cmd[0], cmd)
+    # Wait for signal file (frontend ready) or process exit
+    while proc.poll() is None:
+        if signal_file.exists():
+            stop_spinner.set()
+            signal_file.unlink(missing_ok=True)
+            break
+        time.sleep(0.05)
+
+    # Stop spinner if process exited early
+    stop_spinner.set()
+
+    # Wait for Node to finish
+    sys.exit(proc.wait())
 
 
 if __name__ == "__main__":

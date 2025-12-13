@@ -58,6 +58,9 @@ path = "src/quorum/constants.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/quorum"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"frontend/dist" = "quorum/_frontend"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests", "src"]

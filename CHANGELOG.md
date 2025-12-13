@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- Changes after 1.0.5 release go here -->
+<!-- Changes after 1.0.6 release go here -->
+
+---
+
+## [1.0.6] - 2025-12-13
+
+### Added
+
+- **PyPI Distribution** - Install Quorum with a single command
+  - `pip install quorum-cli && quorum` now works out of the box
+  - Frontend is bundled into the wheel automatically
+  - GitHub Actions workflow for automated PyPI publishing with Trusted Publishing
+
+### Fixed
+
+- **Startup Spinner** - Animated loading spinner now shows immediately on all platforms
+  - Works consistently for both pip install and development mode
+  - Signal file coordination between launcher and frontend
+- **Modal ESC Handling** - `/help` and `/status` modals can now be closed with ESC key
+
+### Changed
+
+- Simplified launcher scripts (removed signal file complexity from user-facing code)
+- Frontend now signals readiness to launcher for seamless spinner-to-UI transition
 
 ---
 
@@ -185,7 +208,9 @@ User cache (`~/.quorum/`):
 
 ---
 
-[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/Detrol/quorum-cli/compare/v1.0.6...HEAD
+[1.0.6]: https://github.com/Detrol/quorum-cli/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/Detrol/quorum-cli/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Detrol/quorum-cli/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Detrol/quorum-cli/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Detrol/quorum-cli/compare/v1.0.1...v1.0.2

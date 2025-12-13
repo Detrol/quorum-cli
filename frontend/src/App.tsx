@@ -158,15 +158,16 @@ export function App() {
           setMaxTurns(userSettings.max_turns);
         }
 
-        // Settings loaded - show UI
-        setBackendReady(true);
-
-        // Signal shell spinner to stop and clear screen for UI
+        // Signal launcher spinner to stop and wait briefly for it to clear
         const signalFile = process.env.QUORUM_SIGNAL_FILE;
         if (signalFile) {
-          writeFileSync(signalFile, "ready");
+          try { writeFileSync(signalFile, "ready"); } catch {}
+          await new Promise(r => setTimeout(r, 100)); // Let spinner clear itself
         }
-        process.stdout.write('\x1Bc');
+
+        // Clear screen fully (screen + scrollback + cursor home)
+        process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
+        setBackendReady(true);
 
         // Mark cached validated models immediately
         const cachedValidated = new Set(modelsResult.validated || []);
@@ -697,7 +698,7 @@ export function App() {
     }
   });
 
-  // Render nothing while backend starts (shell spinner handles this)
+  // Render nothing while backend starts (launcher handles spinner)
   if (!backendReady) {
     return null;
   }

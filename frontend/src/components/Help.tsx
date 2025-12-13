@@ -3,10 +3,18 @@
  */
 
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { t } from "../i18n/index.js";
+import { useStore } from "../store/index.js";
 
 export function Help() {
+  const { setShowHelp } = useStore();
+
+  useInput((input, key) => {
+    if (key.escape) {
+      setShowHelp(false);
+    }
+  });
   return (
     <Box
       flexDirection="column"
