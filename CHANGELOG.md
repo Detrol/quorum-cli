@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP Tool Descriptions** - Improved guidance for Claude Code/Desktop integration
+  - `quorum_list_models`: Now instructs to "ALWAYS call this before quorum_discuss"
+  - `quorum_discuss`: Explicitly mentions checking models first and file context use cases
+  - `files` parameter: Better explains when to use (code review, document comparison, analysis)
+  - `full_output`: Clarifies "only use if user explicitly asks"
+
+- **WSL + Windows Ollama** - Improved README with complete 3-step setup guide
+
 ---
 
 ## [1.1.2] - 2025-12-15

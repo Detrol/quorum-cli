@@ -47,6 +47,11 @@ Use Quorum directly from Claude Code or Claude Desktop via Model Context Protoco
 
 ```bash
 # After installing quorum-cli
+
+# Global (available in all projects)
+claude mcp add quorum --scope user -- quorum-mcp-server
+
+# Or project-local (current project only)
 claude mcp add quorum -- quorum-mcp-server
 ```
 
@@ -755,42 +760,49 @@ Files are saved as `quorum-{question}-{timestamp}.{ext}`.
 
 ### WSL + Windows Ollama
 
-If you run Quorum in WSL but Ollama on Windows, WSL cannot reach Windows `localhost` by default. You need to make Ollama listen on all interfaces:
+If you run Quorum in WSL but Ollama on Windows, WSL cannot reach Windows `localhost` by default. Follow all three steps:
 
-**Option 1: Set environment variable before starting Ollama**
+**Step 1: Make Ollama listen on all interfaces (Windows)**
+
 ```powershell
 # PowerShell (run before starting Ollama)
 $env:OLLAMA_HOST = "0.0.0.0"
 ollama serve
 ```
 
-**Option 2: Set permanent system environment variable**
-1. Open System Properties → Environment Variables
-2. Add new System variable: `OLLAMA_HOST` = `0.0.0.0`
-3. Restart Ollama
+Or set it permanently: System Properties → Environment Variables → New System variable: `OLLAMA_HOST` = `0.0.0.0`
 
-**Option 3: Configure Quorum to use Windows LAN IP**
+**Step 2: Allow Ollama through Windows Firewall (run as Administrator)**
+
 ```powershell
-# On Windows, find your LAN IP
-ipconfig | findstr "IPv4"
-# Look for something like: 192.168.x.x or 10.x.x.x
+New-NetFirewallRule -DisplayName "Ollama" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow
+```
+
+**Step 3: Configure Quorum with the gateway IP (WSL)**
+
+```bash
+# Find your Windows host IP from WSL
+ip route show default | awk '{print $3}'
+# Example output: 172.29.0.1
 ```
 
 ```bash
-# Add to .env in Quorum (WSL)
-OLLAMA_BASE_URL=http://192.168.x.x:11434  # Use your Windows LAN IP
+# Add to .env in Quorum
+OLLAMA_BASE_URL=http://172.29.0.1:11434  # Use YOUR gateway IP
 ```
 
-**Note:** The LAN IP may change if your router assigns a new address. Use a static IP or re-check with `ipconfig` if connection stops working.
+**Verify it works:**
+```bash
+curl http://172.29.0.1:11434/api/tags  # Should return JSON with your models
+```
+
+**Note:** The gateway IP is stable within WSL. Do NOT use the IP from `/etc/resolv.conf` — it often doesn't work.
 
 ### Ollama models not showing in /models
 
 1. **Check Ollama is running:** `ollama list` should show your models
 2. **Check connectivity:** `curl http://localhost:11434/api/tags` should return JSON
-3. **WSL users with Ollama on Windows:**
-   - Verify Ollama listens on 0.0.0.0: `netstat -an | findstr 11434` (on Windows)
-   - Use Windows LAN IP, not the IP from `/etc/resolv.conf`
-   - See [WSL + Windows Ollama](#wsl--windows-ollama) above
+3. **WSL users with Ollama on Windows:** See [WSL + Windows Ollama](#wsl--windows-ollama) above — you need all three steps (0.0.0.0, firewall rule, gateway IP)
 
 ### "Frontend not found" or "node_modules not found"
 

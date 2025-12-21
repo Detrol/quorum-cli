@@ -125,8 +125,10 @@ async def list_tools() -> list[types.Tool]:
             name="quorum_discuss",
             description=(
                 "Run a multi-model AI discussion using Quorum. "
+                "IMPORTANT: Call quorum_list_models first to see available models before starting. "
                 "Model requirements: minimum 2 models; Oxford needs even count (2,4,6); "
                 "Advocate and Delphi need 3+. See quorum://methods resource for details. "
+                "You can include files as context for code review, analysis, or document comparison. "
                 "After the discussion completes, present the synthesis to the user."
             ),
             inputSchema={
@@ -150,12 +152,22 @@ async def list_tools() -> list[types.Tool]:
                     "full_output": {
                         "type": "boolean",
                         "default": False,
-                        "description": "Return full discussion (all phases). Default: false (only synthesis)",
+                        "description": (
+                            "Return full discussion transcript (all phases). "
+                            "Only use this if the user explicitly asks for the full discussion. "
+                            "Default: false (returns only the final synthesis, which is usually sufficient)."
+                        ),
                     },
                     "files": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Absolute file paths to include as context (max 10 files, 100KB each)",
+                        "description": (
+                            "Absolute file paths to include as context for the discussion. "
+                            "Use this for code review, comparing implementations, analyzing documents, "
+                            "or any task where models need to see file contents. "
+                            "Limits: max 10 files, 100KB each, 500KB total. "
+                            "Files are prepended to the question so all models can reference them."
+                        ),
                     },
                 },
                 "required": ["question", "models"],
@@ -163,7 +175,12 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="quorum_list_models",
-            description="List all available AI models configured for Quorum",
+            description=(
+                "List all available AI models configured for Quorum. "
+                "ALWAYS call this before quorum_discuss to see which models are available. "
+                "Returns models grouped by provider (OpenAI, Anthropic, Google, xAI, Ollama, etc). "
+                "Use the model IDs from this list when calling quorum_discuss."
+            ),
             inputSchema={"type": "object", "properties": {}},
         ),
     ]
