@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now uses local-first priority: local `.env` if present, otherwise global `~/.quorum/.env`
   - Prevents confusing merged model lists when running from different project directories
 
+- **Improved Synthesis Format** - More actionable and structured output
+  - New sections: Bottom Line, Key Insight, The Answer, Important Caveats
+  - Quality requirements ensure direct, memorable, and specific answers
+  - For communication questions, includes sample scripts to adapt
+
 ### Fixed
 
 - **Phase 4 Insight Preservation** - Final positions now include full discussion context

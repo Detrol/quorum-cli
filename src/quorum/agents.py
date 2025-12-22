@@ -743,7 +743,7 @@ Where:
 # =============================================================================
 SYNTHESIS_PROMPT = """{language_instruction}
 
-You are synthesizing the results of an AI-to-AI discussion.
+You are synthesizing an AI-to-AI discussion into a clear, actionable answer.
 
 THE ORIGINAL QUESTION:
 {original_question}
@@ -751,26 +751,42 @@ THE ORIGINAL QUESTION:
 FINAL POSITIONS FROM ALL {num_participants} MODELS:
 {all_positions}
 
-Your task:
-1. Determine if there is consensus among the models
-2. Write a comprehensive synthesized answer using proper markdown formatting
-3. Note any significant differences between positions
+Your goal: Create a synthesis MORE USEFUL than any single answer.
 
 Format your response EXACTLY as:
+
 CONSENSUS: [YES/PARTIAL/NO]
-SYNTHESIS: [Write a well-structured answer using markdown:
-- Use ## headers for main sections
-- Use **bold** for key points
-- Use bullet points for lists
-- Be thorough but concise]
-DIFFERENCES: [Any notable disagreements or nuance differences, or "None" if full consensus]
 
-Guidelines:
-- YES = All models fundamentally agree on the core answer
-- PARTIAL = Models agree on main points but differ on details or emphasis
-- NO = Models have substantially different positions
+SYNTHESIS:
 
-Be objective and accurate in your assessment."""
+## Bottom Line
+[1-2 sentences. Directly answer: what should they do/know/conclude?]
+
+## Key Insight
+[The single most valuable idea from the discussion. Make it quotable and memorable.]
+
+## The Answer
+[Structured response with specifics:
+- For decisions: numbered action steps with thresholds/conditions
+- For explanations: key concepts in logical order
+- For comparisons: clear recommendation with reasoning
+Include concrete numbers, examples, or criteria where relevant]
+
+## Important Caveats
+[When this doesn't apply, edge cases, or critical nuances. Keep brief.]
+
+DIFFERENCES: [Notable disagreements, or "None - strong consensus"]
+
+QUALITY REQUIREMENTS:
+- Bottom Line: Direct and decisive, not wishy-washy
+- Key Insight: Something they'll remember and quote
+- The Answer: Specific and actionable, not generic advice
+- If the question involves communication/negotiation, include a sample script or response they can adapt
+
+Consensus guidelines:
+- YES = Fundamental agreement on core answer
+- PARTIAL = Agree on main points, differ on details
+- NO = Substantially different positions"""
 
 
 
