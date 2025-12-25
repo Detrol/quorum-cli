@@ -65,9 +65,8 @@ htmlcov/
 CLAUDE.md
 .claude/
 
-# Simple Task Master - User tasks are git-ignored
-.simple-task-master/tasks/
-.simple-task-master/lock
+# Simple Task Master (user-specific)
+.simple-task-master/
 
 # Specs (business strategy, not for public repo)
 specs/
