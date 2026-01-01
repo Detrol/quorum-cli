@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <strong>🌐 Web Version Now Available! Try Quorum in your browser at <a href="https://quorumai.dev">quorumai.dev</a></strong>
+</p>
+
+<p align="center">
   <strong>AI War Room in your terminal.</strong><br>
   Watch GPT, Claude, Gemini, and Grok debate using formal methods.<br>
   <em>Now with MCP support for Claude Code/Desktop.</em>
