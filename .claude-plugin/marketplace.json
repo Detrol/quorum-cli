@@ -1,0 +1,17 @@
+{
+  "name": "quorum",
+  "owner": {
+    "name": "Detrol",
+    "url": "https://github.com/Detrol"
+  },
+  "metadata": {
+    "description": "Quorum: multi-agent debates for Claude Code and Codex."
+  },
+  "plugins": [
+    {
+      "name": "quorum",
+      "source": "./",
+      "description": "Multi-agent debates between claude, codex and agy via MCP."
+    }
+  ]
+}

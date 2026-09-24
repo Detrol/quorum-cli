@@ -8,12 +8,14 @@ import random
 import re
 from abc import ABC, abstractmethod
 from collections import deque
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, AsyncIterator, Callable, TypeVar
 
 from ..agents import _make_valid_identifier
 from ..clients import SystemMessage, UserMessage
+from ..clients.agent_cli import RUN_FAILED
 from ..config import get_settings
 from ..constants import (
     ERROR_MESSAGE_MAX_LENGTH,
@@ -25,6 +27,13 @@ from ..models import extract_api_error, get_pooled_client, remove_from_pool
 from ..providers import format_display_name
 
 logger = logging.getLogger(__name__)
+
+# Per-turn timeout override for one Run (agent participants need minutes, not seconds).
+TURN_TIMEOUT: ContextVar[float | None] = ContextVar("quorum_turn_timeout", default=None)
+
+
+def turn_timeout() -> float:
+    return TURN_TIMEOUT.get() or float(get_settings().model_timeout)
 
 # Type variable for generic parallel phase results
 T = TypeVar("T")
@@ -340,7 +349,7 @@ class BaseMethodOrchestrator(ABC):
             The model's response content, or error message if failed.
         """
         if timeout is None:
-            timeout = float(get_settings().model_timeout)
+            timeout = turn_timeout()
 
         try:
             # Use pooled client for connection reuse
@@ -429,7 +438,7 @@ class BaseMethodOrchestrator(ABC):
         self,
         prompt_builder: Callable[[str], str],
         user_message: str,
-        timeout: float = PHASE_TIMEOUT_SECONDS,
+        timeout: float | None = None,
     ) -> dict[str, str]:
         """Run all models and return responses.
 
@@ -445,6 +454,9 @@ class BaseMethodOrchestrator(ABC):
         Returns:
             Dict mapping agent_name to response content.
         """
+        if timeout is None:
+            timeout = max(PHASE_TIMEOUT_SECONDS, turn_timeout() + 30)
+
         async def get_response(model_id: str) -> tuple[str, str]:
             agent_name = _make_valid_identifier(model_id)
             try:
@@ -507,9 +519,13 @@ class BaseMethodOrchestrator(ABC):
         Returns:
             Model ID to use for synthesis.
         """
+        # Skip participants dropped earlier in this run (agent participants only)
+        failed = RUN_FAILED.get() or {}
+        alive = [m for m in self.model_ids if m not in failed] or self.model_ids
+
         # Non-standard methods always use first model
         if self.method_name != "standard":
-            return self.model_ids[0]
+            return alive[0]
 
         # Standard method: use config or override
         if self.synthesizer_override:
@@ -525,7 +541,7 @@ class BaseMethodOrchestrator(ABC):
             self._rotation_index += 1
             return model
         else:  # "first" or default
-            return self.model_ids[0]
+            return alive[0]
 
     # =========================================================================
     # Synthesis Parsing

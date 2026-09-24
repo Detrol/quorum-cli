@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - Unreleased
+
+### Added
+
+- **Agent participants** - claude, codex and agy (Antigravity) take part in discussions via their CLIs, on the user's own subscription
+  - Read-only project access plus web search; isolated from the user's hooks, plugins, MCP servers and instruction files
+  - Participant ids `agent:model@effort`, with one effort scale clamped to what each model supports
+  - Model catalog discovered from each CLI (cached for 1 h) and presets by role: `quick`, `balanced`, `deep`
+- **Claude Code & Codex plugin** - `.claude-plugin/`, `.codex-plugin/`, a shared `quorum` skill and `.mcp.json`
+- **MCP tools** `quorum_start` / `quorum_wait` (runs survive client tool timeouts) and `quorum_check` (real ping)
+
+### Changed
+
+- MCP server exposes only agent participants; `quorum_discuss` is replaced by `quorum_start` + `quorum_wait`
+- MCP errors are returned as real tool errors instead of a fake synthesis
+- A dropped participant is skipped for the rest of the run, including as synthesizer
+
+### Fixed
+
+- MCP server crashed on start with `mcp` 2.x; dependency pinned to `mcp<2`
+- MCP server reported a hard-coded version
+
 ## [1.1.5] - 2025-12-25
 
 ### Added

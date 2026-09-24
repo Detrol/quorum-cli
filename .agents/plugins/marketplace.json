@@ -1,0 +1,12 @@
+{
+  "name": "quorum",
+  "interface": {"displayName": "Quorum"},
+  "plugins": [
+    {
+      "name": "quorum",
+      "source": {"source": "url", "url": "https://github.com/Detrol/quorum-cli.git", "ref": "main"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}

@@ -11,7 +11,7 @@
 <p align="center">
   <strong>AI War Room in your terminal.</strong><br>
   Watch GPT, Claude, Gemini, and Grok debate using formal methods.<br>
-  <em>Now with MCP support for Claude Code/Desktop.</em>
+  <em>Now a Claude Code &amp; Codex plugin for debates between agent CLIs.</em>
 </p>
 
 <p align="center">
@@ -45,32 +45,35 @@ quorum
 
 ---
 
-## Claude Code / Desktop Integration (MCP)
+## Claude Code & Codex plugin: agent debates (MCP)
 
-Use Quorum directly from Claude Code or Claude Desktop via Model Context Protocol:
+Ask your coding agent for a Quorum and it runs a structured debate between the agent CLIs
+you have installed: **claude**, **codex** and **agy** (Antigravity). Each one runs on your
+own subscription. No API keys are needed. Participants can read your project (read-only),
+search the web, and run isolated from your hooks, plugins and instruction files.
 
 ```bash
-# After installing quorum-cli
+# Claude Code
+claude plugin marketplace add Detrol/quorum-cli
+claude plugin install quorum@quorum
 
-# Global (available in all projects)
-claude mcp add quorum --scope user -- quorum-mcp-server
-
-# Or project-local (current project only)
-claude mcp add quorum -- quorum-mcp-server
+# Codex
+codex plugin marketplace add Detrol/quorum-cli
+codex plugin add quorum@quorum
 ```
 
-Then in Claude:
-> "Use Quorum to discuss whether we should use PostgreSQL or MongoDB with GPT and Claude"
+The plugin starts the server with `uvx --from quorum-cli quorum-mcp-server`, so [uv](https://github.com/astral-sh/uv)
+must be on PATH. Then ask, for example:
+> "Run a deep Quorum on whether we should split this service"
 
-**MCP Tools:**
-- `quorum_discuss` - Run multi-model discussions with any of the 7 methods
-- `quorum_list_models` - List your configured models
+**MCP tools:**
+- `quorum_list_models` - Agents, login status, current models with roles and effort levels, presets
+- `quorum_start` - Start a run: preset (`quick`/`balanced`/`deep`) or explicit `agent:model@effort` participants, any of the 7 methods
+- `quorum_wait` - Poll a run in slices until the synthesis is ready (safe under client tool timeouts)
+- `quorum_check` - Real ping to every agent
 
-**Features:**
-- Pass `files` parameter to include code/docs as context (max 10 files, 100KB each)
-- Reuses your existing `~/.quorum/.env` config - no duplicate API keys
-- Compact output by default (synthesis only) - saves context
-- Set `full_output: true` for complete discussion transcript
+**Defaults:** at most 4 participants, 10 min per turn, 30 min per run, one run per project at a time.
+Transcripts are saved to `~/.quorum/runs/`.
 
 ---
 

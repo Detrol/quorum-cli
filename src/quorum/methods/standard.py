@@ -32,6 +32,7 @@ from .base import (
     TeamTextMessage,
     ThinkingComplete,
     ThinkingIndicator,
+    turn_timeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -151,9 +152,7 @@ class StandardMethod(BaseMethodOrchestrator):
             Uses pooled clients to avoid closing shared HTTP connections
             while other requests are still in progress.
             """
-            from ..config import get_settings
-
-            timeout = get_settings().model_timeout
+            timeout = turn_timeout()
             agent_name = _make_valid_identifier(model_id)
             try:
                 # Use pooled client - reuses connections, doesn't close after use

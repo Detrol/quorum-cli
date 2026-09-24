@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "quorum": {
+      "command": "uvx",
+      "args": ["--from", "quorum-cli>=1.2.0", "quorum-mcp-server"]
+    }
+  }
+}

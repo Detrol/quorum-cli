@@ -1,10 +1,18 @@
-"""MCP server for Quorum multi-agent discussions."""
+"""MCP server for Quorum: discussions between agent CLIs (claude, codex, agy).
+
+Tools: quorum_list_models, quorum_start, quorum_wait, quorum_check.
+A Run executes inside this server process; the caller waits on it in slices so long
+discussions survive MCP client tool timeouts. Terms: see CONTEXT.md.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import sys
+import os
+import time
+import uuid
+from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,15 +21,34 @@ import mcp.types as types
 from mcp.server.lowlevel import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
-from quorum.config import get_settings
-from quorum.ipc import VALID_METHODS
-from quorum.providers import list_all_models_sync
-from quorum.team import FourPhaseConsensusTeam
+from quorum.clients.agent_cli import (
+    AGENTS,
+    EFFORTS,
+    PRESETS,
+    RUN_CWD,
+    RUN_FAILED,
+    discover,
+    parse_participant,
+    ping,
+    resolve_preset,
+)
+from quorum.config import CACHE_DIR
+from quorum.constants import __version__
+from quorum.methods.base import TURN_TIMEOUT
 
 # Limits for file reading
 MAX_FILES = 10
 MAX_FILE_SIZE = 100_000  # 100KB per file
 MAX_TOTAL_CONTEXT = 500_000  # 500KB total
+
+# Run limits (overridable per quorum_start call)
+DEFAULT_MAX_PARTICIPANTS = 4
+DEFAULT_TURN_MINUTES = 10
+DEFAULT_TOTAL_MINUTES = 30
+WAIT_DEFAULT_SECONDS = 45  # stays under Codex's default MCP tool timeout
+WAIT_MAX_SECONDS = 600
+RUNS_DIR = CACHE_DIR / "runs"
+METHOD_MIN = {"advocate": 3, "delphi": 3}
 
 # Method descriptions for the resource
 METHOD_INFO = {
@@ -72,143 +99,6 @@ METHOD_INFO = {
     },
 }
 
-server = Server("quorum")
-
-
-# ─────────────────────────────────────────────────────────────
-# Resources
-# ─────────────────────────────────────────────────────────────
-
-
-@server.list_resources()
-async def list_resources() -> list[types.Resource]:
-    """List available Quorum resources."""
-    return [
-        types.Resource(
-            uri="quorum://models",
-            name="Available Models",
-            description="AI models configured for Quorum discussions",
-            mimeType="application/json",
-        ),
-        types.Resource(
-            uri="quorum://methods",
-            name="Discussion Methods",
-            description="The 7 discussion methods available in Quorum",
-            mimeType="application/json",
-        ),
-    ]
-
-
-@server.read_resource()
-async def read_resource(uri: str) -> str:
-    """Read a Quorum resource."""
-    if uri == "quorum://models":
-        models = list_all_models_sync()
-        return json.dumps(models, indent=2)
-
-    if uri == "quorum://methods":
-        return json.dumps(METHOD_INFO, indent=2)
-
-    raise ValueError(f"Unknown resource: {uri}")
-
-
-# ─────────────────────────────────────────────────────────────
-# Tools
-# ─────────────────────────────────────────────────────────────
-
-
-@server.list_tools()
-async def list_tools() -> list[types.Tool]:
-    """List available Quorum tools."""
-    return [
-        types.Tool(
-            name="quorum_discuss",
-            description=(
-                "Run a multi-model AI discussion using Quorum. "
-                "IMPORTANT: Call quorum_list_models first to see available models before starting. "
-                "Model requirements: minimum 2 models; Oxford needs even count (2,4,6); "
-                "Advocate and Delphi need 3+. See quorum://methods resource for details. "
-                "You can include files as context for code review, analysis, or document comparison. "
-                "After the discussion completes, present the synthesis to the user."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "The question or topic to discuss",
-                    },
-                    "models": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Model IDs to participate (e.g., ['gpt-4o', 'claude-sonnet'])",
-                    },
-                    "method": {
-                        "type": "string",
-                        "enum": list(VALID_METHODS),
-                        "default": "standard",
-                        "description": "Discussion method to use",
-                    },
-                    "full_output": {
-                        "type": "boolean",
-                        "default": False,
-                        "description": (
-                            "Return full discussion transcript (all phases). "
-                            "Only use this if the user explicitly asks for the full discussion. "
-                            "Default: false (returns only the final synthesis, which is usually sufficient)."
-                        ),
-                    },
-                    "files": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "Absolute file paths to include as context for the discussion. "
-                            "Use this for code review, comparing implementations, analyzing documents, "
-                            "or any task where models need to see file contents. "
-                            "Limits: max 10 files, 100KB each, 500KB total. "
-                            "Files are prepended to the question so all models can reference them."
-                        ),
-                    },
-                },
-                "required": ["question", "models"],
-            },
-        ),
-        types.Tool(
-            name="quorum_list_models",
-            description=(
-                "List all available AI models configured for Quorum. "
-                "ALWAYS call this before quorum_discuss to see which models are available. "
-                "Returns models grouped by provider (OpenAI, Anthropic, Google, xAI, Ollama, etc). "
-                "Use the model IDs from this list when calling quorum_discuss."
-            ),
-            inputSchema={"type": "object", "properties": {}},
-        ),
-    ]
-
-
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
-    """Handle tool calls."""
-    if name == "quorum_list_models":
-        return await _handle_list_models()
-
-    if name == "quorum_discuss":
-        return await _handle_discuss(arguments)
-
-    raise ValueError(f"Unknown tool: {name}")
-
-
-async def _handle_list_models() -> list[types.TextContent]:
-    """List all available models."""
-    from dataclasses import asdict
-
-    models = list_all_models_sync()
-    # Convert ModelInfo dataclasses to dicts for JSON serialization
-    serializable = {
-        provider: [asdict(m) for m in model_list]
-        for provider, model_list in models.items()
-    }
-    return [types.TextContent(type="text", text=json.dumps(serializable, indent=2))]
 
 
 def _read_files(file_paths: list[str]) -> tuple[str, list[str]]:
@@ -264,117 +154,368 @@ def _read_files(file_paths: list[str]) -> tuple[str, list[str]]:
     return context, errors
 
 
-async def _handle_discuss(args: dict[str, Any]) -> list[types.TextContent]:
-    """Run a Quorum discussion."""
-    question = args["question"]
-    model_ids = args["models"]
-    method = args.get("method", "standard")
-    full_output = args.get("full_output", False)
-    file_paths = args.get("files", [])
 
-    # Read files if provided
-    file_context = ""
-    file_errors: list[str] = []
-    if file_paths:
-        file_context, file_errors = _read_files(file_paths)
 
-    # Build full question with file context
-    if file_context:
-        full_question = f"Context files:\n\n{file_context}\n\n---\n\nQuestion: {question}"
-    else:
-        full_question = question
+# ─────────────────────────────────────────────────────────────
+# Runs
+# ─────────────────────────────────────────────────────────────
 
-    # Initialize before try block so they're available in except
-    synthesis = None
-    all_messages: list[dict] = []
 
-    try:
+@dataclass
+class Run:
+    id: str
+    cwd: str
+    method: str
+    participants: list[str]
+    status: str = "running"  # running | done | failed
+    phase: str = "starting"
+    progress: list[str] = field(default_factory=list)
+    messages: list[dict] = field(default_factory=list)
+    dropped: dict[str, str] = field(default_factory=dict)
+    result: dict | None = None
+    error: str | None = None
+    started: float = field(default_factory=time.time)
+    task: asyncio.Task | None = None
+
+
+RUNS: dict[str, Run] = {}
+
+
+def _compact_result(run: Run, s: dict) -> dict[str, Any]:
+    return {
+        "consensus": s.get("consensus"),
+        "synthesis": s.get("synthesis"),
+        "differences": s.get("differences"),
+        "synthesizer": s.get("synthesizer_model"),
+        "positions": [
+            {"participant": p["source"], "confidence": p["confidence"], "position": p["position"][:500]}
+            for p in s.get("positions") or []
+        ],
+        "method": run.method,
+        "participants": run.participants,
+        "dropped": run.dropped,
+    }
+
+
+async def _execute(run: Run, question: str, turn_seconds: float, total_seconds: float) -> None:
+    """Run the discussion in this task's own context (cwd, timeouts, drop tracking)."""
+    from quorum.team import FourPhaseConsensusTeam
+
+    RUN_CWD.set(run.cwd)
+    RUN_FAILED.set(run.dropped)
+    TURN_TIMEOUT.set(turn_seconds)
+    synthesis: dict | None = None
+
+    async def body() -> None:
+        nonlocal synthesis
         team = FourPhaseConsensusTeam(
-            model_ids=model_ids,
-            method_override=method,
+            model_ids=run.participants,
+            method_override=run.method,
+            synthesizer_override="first",
             use_language_settings=False,
         )
+        async for msg in team.run_stream(question):
+            kind = type(msg).__name__
+            data = {"type": kind, **(asdict(msg) if is_dataclass(msg) else {"value": str(msg)})}
+            run.messages.append(data)
+            if kind == "PhaseMarker":
+                names = METHOD_INFO.get(run.method, {}).get("phases", [])
+                label = names[msg.phase - 1] if 0 < msg.phase <= len(names) else msg.message_key
+                run.phase = f"phase {msg.phase}/{msg.total_phases}: {label}"
+                run.progress.append(run.phase)
+            elif kind == "ThinkingComplete":
+                run.progress.append(f"{msg.model} replied")
+            elif kind == "SynthesisResult":
+                synthesis = data
+            if len(run.participants) - len(run.dropped) < 2:
+                raise RuntimeError(f"fewer than 2 participants left; dropped: {run.dropped}")
 
-        async for msg in team.run_stream(full_question):
-            if hasattr(msg, "__dict__"):
-                msg_dict = {
-                    "type": type(msg).__name__,
-                    **msg.__dict__,
-                }
-                all_messages.append(msg_dict)
-
-                # Capture synthesis for compact output
-                if type(msg).__name__ == "SynthesisResult":
-                    synthesis = msg_dict
-
-        # Return full output or just synthesis
-        if full_output:
-            return [types.TextContent(type="text", text=json.dumps(all_messages, indent=2))]
-
-        # Compact: return only synthesis
-        if synthesis:
-            # Clean up synthesis for readability
-            compact_result: dict[str, Any] = {
-                "consensus": synthesis.get("consensus"),
-                "synthesis": synthesis.get("synthesis"),
-                "differences": synthesis.get("differences"),
-                "method": synthesis.get("method"),
-                "models": model_ids,
-            }
-            if file_errors:
-                compact_result["file_errors"] = file_errors
-            if file_paths:
-                compact_result["files_included"] = len(file_paths) - len(file_errors)
-            return [types.TextContent(type="text", text=json.dumps(compact_result, indent=2))]
-
-        # Fallback if no synthesis (shouldn't happen)
-        return [types.TextContent(type="text", text=json.dumps(all_messages, indent=2))]
-
-    except ValueError as e:
-        # Configuration errors (invalid model, missing API key, etc.)
-        return [types.TextContent(
-            type="text",
-            text=json.dumps({
-                "error": str(e),
-                "error_type": "configuration",
-                "models": model_ids,
-                "method": method,
-            }),
-        )]
-
+    try:
+        await asyncio.wait_for(body(), total_seconds)
+        if synthesis is None or str(synthesis.get("synthesis", "")).startswith("[Error"):
+            raise RuntimeError(f"no synthesis produced: {(synthesis or {}).get('synthesis')}")
+        run.result = _compact_result(run, synthesis)
+        run.status = "done"
+    except asyncio.TimeoutError:
+        run.status, run.error = "failed", f"run exceeded {total_seconds / 60:.0f} minutes"
     except Exception as e:
-        # Unexpected errors during discussion
-        error_msg = str(e)
-        # Truncate very long error messages
-        if len(error_msg) > 500:
-            error_msg = error_msg[:500] + "..."
+        run.status, run.error = "failed", str(e)[:1000]
+    finally:
+        run.phase = run.status
+        RUNS_DIR.mkdir(parents=True, exist_ok=True)
+        path = RUNS_DIR / f"{run.id}.json"
+        path.write_text(json.dumps({"run": _status(run, full=False), "messages": run.messages}, indent=2))
+        if run.result is not None:
+            run.result["transcript_file"] = str(path)
 
-        return [types.TextContent(
-            type="text",
-            text=json.dumps({
-                "error": error_msg,
-                "error_type": "discussion_failed",
-                "models": model_ids,
-                "method": method,
-                "partial_results": len(all_messages),
-            }),
-        )]
+
+def _status(run: Run, full: bool) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "run_id": run.id,
+        "status": run.status,
+        "phase": run.phase,
+        "elapsed_seconds": round(time.time() - run.started),
+        "participants": run.participants,
+        "dropped": run.dropped,
+        "recent_progress": run.progress[-8:],
+    }
+    if run.result is not None:
+        out["result"] = run.result
+    if run.error:
+        out["error"] = run.error
+    if full:
+        out["transcript"] = run.messages
+    return out
 
 
 # ─────────────────────────────────────────────────────────────
-# Entry point
+# Tool handlers
 # ─────────────────────────────────────────────────────────────
+
+
+async def _list_models(args: dict[str, Any]) -> dict[str, Any]:
+    catalog = await discover(refresh=bool(args.get("refresh")))
+    return {
+        "agents": catalog,
+        "presets": {name: resolve_preset(name, catalog) for name in PRESETS},
+        "efforts": list(EFFORTS),
+        "methods": METHOD_INFO,
+        "limits": {
+            "max_participants": DEFAULT_MAX_PARTICIPANTS,
+            "turn_timeout_minutes": DEFAULT_TURN_MINUTES,
+            "total_timeout_minutes": DEFAULT_TOTAL_MINUTES,
+        },
+    }
+
+
+async def _start(args: dict[str, Any]) -> dict[str, Any]:
+    if os.environ.get("QUORUM_PARTICIPANT"):
+        raise ValueError("Nested Quorum runs are not allowed from inside a participant.")
+
+    cwd = str(Path(args.get("cwd") or os.getcwd()).resolve())
+    if not Path(cwd).is_dir():
+        raise ValueError(f"cwd is not a directory: {cwd}")
+    busy = [r.id for r in RUNS.values() if r.cwd == cwd and r.status == "running"]
+    if busy:
+        raise ValueError(f"A run is already active for {cwd}: {busy[0]}. Wait for it first.")
+
+    method = args.get("method", "standard")
+    effort = args.get("effort")
+    catalog = await discover()
+    ids = args.get("participants") or resolve_preset(args.get("preset", "balanced"), catalog)
+    participants = [parse_participant(pid, effort) for pid in ids]
+
+    for p in participants:
+        entry = catalog.get(p.agent) or {}
+        if entry.get("status") != "ok":
+            raise ValueError(f"{p.agent} is unavailable: {entry.get('detail', 'unknown')}")
+        known = {m["model"] for m in entry["models"]}
+        if p.agent != "claude" and p.model not in known:  # claude also accepts full model ids
+            raise ValueError(f"Unknown {p.agent} model '{p.model}'. Known: {', '.join(sorted(known))}")
+
+    max_participants = int(args.get("max_participants", DEFAULT_MAX_PARTICIPANTS))
+    pids = list(dict.fromkeys(p.id for p in participants))
+    if not 2 <= len(pids) <= max_participants:
+        raise ValueError(f"Need 2 to {max_participants} distinct participants, got {len(pids)}: {pids}")
+    if len(pids) < METHOD_MIN.get(method, 2):
+        raise ValueError(f"Method '{method}' needs at least {METHOD_MIN[method]} participants.")
+    if method == "oxford" and len(pids) % 2:
+        raise ValueError("Method 'oxford' needs an even number of participants.")
+
+    question = args["question"]
+    file_paths = args.get("files") or []
+    file_context, file_errors = _read_files(file_paths) if file_paths else ("", [])
+    if file_errors:
+        raise ValueError("File errors: " + "; ".join(file_errors))
+    if file_context:
+        question = f"Context files:\n\n{file_context}\n\n---\n\nQuestion: {question}"
+
+    run = Run(id=uuid.uuid4().hex[:12], cwd=cwd, method=method, participants=pids)
+    RUNS[run.id] = run
+    turn = float(args.get("turn_timeout_minutes", DEFAULT_TURN_MINUTES)) * 60
+    total = float(args.get("total_timeout_minutes", DEFAULT_TOTAL_MINUTES)) * 60
+    run.task = asyncio.create_task(_execute(run, question, turn, total))
+    return {"run_id": run.id, "participants": pids, "method": method, "cwd": cwd,
+            "next": f"Call quorum_wait with run_id '{run.id}' until status is not 'running'."}
+
+
+async def _wait(args: dict[str, Any]) -> dict[str, Any]:
+    run = RUNS.get(args["run_id"])
+    if run is None:
+        raise ValueError(f"Unknown run_id '{args['run_id']}' (runs live only as long as this server).")
+    seconds = min(float(args.get("max_seconds", WAIT_DEFAULT_SECONDS)), WAIT_MAX_SECONDS)
+    if run.task and not run.task.done():
+        await asyncio.wait({run.task}, timeout=seconds)
+    return _status(run, full=bool(args.get("full")))
+
+
+async def _check(args: dict[str, Any]) -> dict[str, Any]:
+    catalog = await discover(refresh=True)
+    agents = args.get("agents") or list(AGENTS)
+    results = await asyncio.gather(*(ping(a, catalog) for a in agents))
+    return dict(zip(agents, results))
+
+
+HANDLERS = {
+    "quorum_list_models": _list_models,
+    "quorum_start": _start,
+    "quorum_wait": _wait,
+    "quorum_check": _check,
+}
+
+
+# ─────────────────────────────────────────────────────────────
+# MCP wiring
+# ─────────────────────────────────────────────────────────────
+
+server = Server("quorum")
+
+
+@server.list_resources()
+async def list_resources() -> list[types.Resource]:
+    return [
+        types.Resource(
+            uri="quorum://methods",
+            name="Discussion Methods",
+            description="The 7 discussion methods available in Quorum",
+            mimeType="application/json",
+        ),
+    ]
+
+
+@server.read_resource()
+async def read_resource(uri: Any) -> str:
+    if str(uri) == "quorum://methods":
+        return json.dumps(METHOD_INFO, indent=2)
+    raise ValueError(f"Unknown resource: {uri}")
+
+
+PARTICIPANT_HELP = (
+    "Participant ids are 'agent:model@effort', e.g. 'claude:opus@high', 'codex:gpt-6-sol@medium', "
+    "'agy:gemini-3.1-pro-high'. The first participant writes the synthesis, so put the strongest first."
+)
+
+
+@server.list_tools()
+async def list_tools() -> list[types.Tool]:
+    return [
+        types.Tool(
+            name="quorum_list_models",
+            description=(
+                "List the agent CLIs (claude, codex, agy) available as Quorum participants: login status, "
+                "current models with descriptions and roles (flagship/workhorse/fast), supported effort "
+                "levels, resolved presets, discussion methods and limits. Call this before quorum_start "
+                "unless you use a preset. Cached for an hour; pass refresh=true to rediscover."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {"refresh": {"type": "boolean", "default": False}},
+            },
+        ),
+        types.Tool(
+            name="quorum_start",
+            description=(
+                "Start a Quorum discussion between agent CLIs. Only use when the user asks for one. "
+                "Participants can read the project (read-only) and search the web. Returns a run_id "
+                "immediately; then call quorum_wait until the status is 'done' or 'failed', and present "
+                "the synthesis to the user. " + PARTICIPANT_HELP
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "The question or topic to discuss."},
+                    "participants": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Explicit participant ids. Omit to use the preset. " + PARTICIPANT_HELP,
+                    },
+                    "preset": {
+                        "type": "string",
+                        "enum": list(PRESETS),
+                        "default": "balanced",
+                        "description": (
+                            "Used when participants is omitted: one participant per available agent. "
+                            "quick = fast models/low effort, balanced = workhorse/medium, deep = flagship/high."
+                        ),
+                    },
+                    "effort": {
+                        "type": "string",
+                        "enum": list(EFFORTS),
+                        "description": "Default effort for participants that do not give '@effort'.",
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": list(METHOD_INFO),
+                        "default": "standard",
+                        "description": "Discussion method; see quorum_list_models for what each is best for.",
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Absolute project directory participants may read. Default: server cwd.",
+                    },
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Absolute file paths to inline as context (max 10, 100KB each).",
+                    },
+                    "max_participants": {"type": "integer", "default": DEFAULT_MAX_PARTICIPANTS},
+                    "turn_timeout_minutes": {"type": "number", "default": DEFAULT_TURN_MINUTES},
+                    "total_timeout_minutes": {"type": "number", "default": DEFAULT_TOTAL_MINUTES},
+                },
+                "required": ["question"],
+            },
+        ),
+        types.Tool(
+            name="quorum_wait",
+            description=(
+                "Wait up to max_seconds for a Quorum run, then return its status, phase, recent progress "
+                "and dropped participants; when done, the result (consensus, synthesis, differences, "
+                "final positions). Call repeatedly while status is 'running'. full=true adds the whole "
+                "transcript — only when the user asks for it."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "string"},
+                    "max_seconds": {"type": "number", "default": WAIT_DEFAULT_SECONDS},
+                    "full": {"type": "boolean", "default": False},
+                },
+                "required": ["run_id"],
+            },
+        ),
+        types.Tool(
+            name="quorum_check",
+            description=(
+                "Health check: rediscover the agents and send each a real one-word ping with its fast "
+                "model. Uses a little quota; only call when the user asks or a run failed to start."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "agents": {"type": "array", "items": {"type": "string", "enum": list(AGENTS)}},
+                },
+            },
+        ),
+    ]
+
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
+    handler = HANDLERS.get(name)
+    if handler is None:
+        raise ValueError(f"Unknown tool: {name}")
+    result = await handler(arguments or {})
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
 
 async def _run_server() -> None:
-    """Run the MCP server with stdio transport."""
     async with mcp.server.stdio.stdio_server() as (read, write):
         await server.run(
             read,
             write,
             InitializationOptions(
                 server_name="quorum",
-                server_version="1.1.4",
+                server_version=__version__,
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={},
@@ -385,18 +526,4 @@ async def _run_server() -> None:
 
 def main() -> None:
     """Run the Quorum MCP server."""
-    # Verify config exists
-    settings = get_settings()
-    if not settings.available_providers:
-        print(
-            "No providers configured. Run 'quorum' first to configure.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    # Run server
     asyncio.run(_run_server())
-
-
-if __name__ == "__main__":
-    main()

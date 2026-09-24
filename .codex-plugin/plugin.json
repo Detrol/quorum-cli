@@ -1,0 +1,26 @@
+{
+  "name": "quorum",
+  "version": "1.2.0",
+  "description": "On request, run a structured debate between agent CLIs (claude, codex, agy) with deliberate model and effort choice; participants can read the project and search the web.",
+  "author": {"name": "Detrol", "url": "https://github.com/Detrol"},
+  "homepage": "https://github.com/Detrol/quorum-cli",
+  "repository": "https://github.com/Detrol/quorum-cli",
+  "license": "BSL-1.1",
+  "keywords": ["debate", "multi-agent", "mcp", "second-opinion"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Quorum",
+    "shortDescription": "Debates between claude, codex and agy",
+    "longDescription": "Ask Quorum to put a question to several agent CLIs at once. They research read-only in your project and on the web, debate in structured phases, and return a synthesis with consensus and remaining disagreements.",
+    "developerName": "Detrol",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "websiteURL": "https://github.com/Detrol/quorum-cli",
+    "defaultPrompt": [
+      "Have Quorum debate this design decision.",
+      "Get a deep Quorum second opinion on this plan.",
+      "Run a quick Quorum on which option is better."
+    ]
+  }
+}

@@ -13,6 +13,7 @@ import re
 from collections import OrderedDict
 
 from .clients import AnthropicClient, ChatClient, OpenAIClient, UserMessage
+from .clients.agent_cli import AgentCLIClient, is_agent_model
 from .config import get_settings
 from .constants import (
     HTTP_CONNECT_TIMEOUT,
@@ -216,6 +217,9 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
     Raises:
         ValueError: If the provider cannot be detected or API key is missing.
     """
+    if is_agent_model(model_id):
+        return AgentCLIClient(model_id)
+
     settings = get_settings()
     provider = get_provider_for_model(model_id)
 

@@ -1,0 +1,36 @@
+name: agent-mcp-plugin
+initial: execute
+
+nodes:
+  execute:
+    prompt: |
+      Implement the tasks in docs/agent-participants.md in this worktree
+      (branch feat/agent-mcp-plugin). Keep edits scoped to the spec.
+    before_transfer:
+      type: checklist
+      items:
+        - All spec tasks implemented
+        - No unrelated files changed
+
+  verify:
+    prompt: |
+      Run `.venv/bin/python -m pytest` (must exit 0, includes ruff) and a live
+      smoke Run through the MCP server over stdio. Return to execute on failure.
+    before_transfer:
+      type: checklist
+      items:
+        - pytest exits 0
+        - Live smoke Run completed with a synthesis
+
+  handoff:
+    prompt: |
+      Commit task-owned changes on the task branch. Report to the user; do not
+      push, merge or tag without explicit approval.
+
+edges:
+  - from: execute
+    to: verify
+  - from: verify
+    to: execute
+  - from: verify
+    to: handoff
