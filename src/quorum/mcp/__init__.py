@@ -466,7 +466,8 @@ async def list_tools() -> list[types.Tool]:
             name="quorum_start",
             description=(
                 "Start a Quorum discussion between agent CLIs. Only use when the user asks for one. "
-                "Before calling, let the user pick providers, then a model per provider, "
+                "Before calling, let the user pick providers, the method, and a model and effort "
+                "per provider, "
                 "unless they already said. "
                 "Participants can read the project (read-only) and search the web. Returns a run_id "
                 "immediately; then call quorum_wait until the status is 'done' or 'failed', and present "

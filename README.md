@@ -75,8 +75,8 @@ yourself: `claude mcp add quorum --scope user -- quorum-mcp-server`.
 Then ask, for example:
 > "Run a Quorum on whether we should split this service"
 
-Before it starts, the agent asks which providers to use, then which of each provider's models.
-Add `@effort` to a model (e.g. `opus@high`) to set its effort.
+Before it starts, the agent asks which providers and which discussion method to use, then a model
+and effort for each provider, with each model's supported effort levels listed.
 
 **MCP tools:**
 - `quorum_list_models` - Providers with status, models, roles and effort levels

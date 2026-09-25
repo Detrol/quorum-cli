@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The skill lets the user pick providers, then a model per provider; it no longer asks about a level
+- The skill lets the user pick providers and the method, then a model and effort per provider (models list their effort levels); it no longer asks about a level
 - MCP respects `QUORUM_SYNTHESIZER` instead of always using the first participant
 - MCP always reads `~/.quorum/.env`, never a `.env` in the calling agent's project directory
 - **Presets removed** (`quick`/`balanced`/`deep`, and `preset`/`agents` on `quorum_start`): participants are always the models the user picked. Effort is sent only when given as `@effort`
