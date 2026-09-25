@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-25
+
+### Added
+
+- `quorum_start` takes `agents` to limit a preset to the agents the user picked
+
+### Changed
+
+- The `quorum` skill and the `quorum_start` description now have the calling agent ask the user for level (`quick`/`balanced`/`deep`) and agents before starting, unless the request already says
+- agy effort now picks the model variant (`gemini-3.1-pro@high` → `gemini-3.1-pro-high`); agy has no effort flag. The catalog lists agy models by base with their variants as efforts
+- Presets fall back to an agent's workhorse model before its first model
+
+### Fixed
+
+- A CLI that saves a refreshed token by rename (grok) broke the user's own login: the rotated token stayed in the isolation home. Refreshed tokens are now copied back to the real login after every agent process, and the link restored
+
 ## [1.3.0] - 2026-09-25
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "quorum",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "On request, run a structured debate between agent CLIs (claude, codex, agy, grok) with deliberate model and effort choice; participants can read the project and search the web.",
   "author": {"name": "Detrol", "url": "https://github.com/Detrol"},
   "homepage": "https://github.com/Detrol/quorum-cli",

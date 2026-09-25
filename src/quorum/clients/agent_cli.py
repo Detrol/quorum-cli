@@ -32,7 +32,7 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max")
 AGENT_EFFORTS = {
     "claude": list(EFFORTS),
     "codex": ["low", "medium", "high", "xhigh"],  # fallback when the catalog is missing
-    "agy": ["low", "medium", "high"],
+    "agy": [],  # agy has no effort flag; effort picks the -low/-medium/-high model variant
     "grok": ["low", "medium", "high", "xhigh"],
 }
 PRESETS = {"quick": ("fast", "low"), "balanced": ("workhorse", "medium"), "deep": ("flagship", "high")}
@@ -143,21 +143,55 @@ def render_prompt(messages: list[Message]) -> str:
 # ─────────────────────────────────────────────────────────────
 
 
-def _link(target: Path, link: Path) -> None:
-    if not target.exists() or link.is_symlink():
-        return
-    # ponytail: a CLI that saved a refreshed token by rename replaced our symlink; relink to the
-    # user's real login and drop the copy. Revisit if a CLI starts rotating refresh tokens.
-    link.unlink(missing_ok=True)
-    link.symlink_to(target)
+def _sync_login(real: Path, link: Path) -> None:
+    """Point an isolation home at the user's real login file.
+
+    CLIs that save a refreshed token by renaming a new file into place (grok does) replace our
+    symlink with a regular file holding the only valid, rotated token. Copy that back over the
+    real login first, then relink, so the isolated and the user's own CLI both keep working.
+    """
+    if link.exists() and not link.is_symlink():
+        if not real.exists() or link.stat().st_mtime >= real.stat().st_mtime:
+            real.parent.mkdir(parents=True, exist_ok=True)
+            tmp = real.with_name(real.name + ".quorum-tmp")
+            shutil.copy2(link, tmp)
+            tmp.chmod(0o600)
+            os.replace(tmp, real)
+        link.unlink()
+    if real.exists() and not link.is_symlink():
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(real)
+
+
+def _login_files() -> list[tuple[Path, Path]]:
+    """(real login file, its link in an isolation home) for every Agent that needs one."""
+    home, gem = Path.home(), Path.home() / ".gemini"
+    codex = Path(os.environ.get("CODEX_HOME") or home / ".codex")
+    agy = HOMES_DIR / "agy" / ".gemini"
+    return [
+        (codex / "auth.json", HOMES_DIR / "codex" / "auth.json"),
+        *[(gem / n, agy / n) for n in ("oauth_creds.json", "google_accounts.json", "installation_id")],
+        (gem / "antigravity-cli" / "installation_id", agy / "antigravity-cli" / "installation_id"),
+        (home / ".grok" / "auth.json", HOMES_DIR / "grok" / ".grok" / "auth.json"),
+    ]
+
+
+def _resync_logins() -> None:
+    """Run after every agent process: hand refreshed tokens back to the real login at once.
+
+    ponytail: races the user's own CLI refreshing in the same instant; a file lock shared with
+    each CLI would close it, but no CLI documents one.
+    """
+    for real, link in _login_files():
+        if link.parent.is_dir():
+            _sync_login(real, link)
 
 
 def _codex_home() -> Path:
     """CODEX_HOME with only the login: no config, hooks, plugins or global AGENTS.md."""
     home = HOMES_DIR / "codex"
     home.mkdir(parents=True, exist_ok=True)
-    src = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
-    _link(src / "auth.json", home / "auth.json")
+    _resync_logins()
     return home
 
 
@@ -166,10 +200,7 @@ def _agy_home() -> Path:
     home = HOMES_DIR / "agy"
     cli = home / ".gemini" / "antigravity-cli"
     cli.mkdir(parents=True, exist_ok=True)
-    real = Path.home() / ".gemini"
-    for name in ("oauth_creds.json", "google_accounts.json", "installation_id"):
-        _link(real / name, home / ".gemini" / name)
-    _link(real / "antigravity-cli" / "installation_id", cli / "installation_id")
+    _resync_logins()
     (cli / "settings.json").write_text(json.dumps(AGY_SETTINGS))
     return home
 
@@ -182,7 +213,7 @@ def _grok_home() -> Path:
     """
     home = HOMES_DIR / "grok"
     (home / ".grok").mkdir(parents=True, exist_ok=True)
-    _link(Path.home() / ".grok" / "auth.json", home / ".grok" / "auth.json")
+    _resync_logins()
     return home
 
 
@@ -222,6 +253,8 @@ async def _run(
         with suppress(BaseException):
             await asyncio.shield(proc.wait())
         raise
+    finally:
+        _resync_logins()
     return proc.returncode or 0, out.decode(errors="replace"), err.decode(errors="replace")
 
 
@@ -298,9 +331,8 @@ async def call_participant(
     # agy takes the prompt as an argument; oversized prompts go through a file it may read.
     home = _agy_home()
     prompt_file = None
-    cmd = ["agy", "--model", p.model, "--sandbox", "--add-dir", cwd, "--output-format", "json"]
-    if effort:
-        cmd += ["--effort", effort]
+    model = agy_model_id(p.model, p.effort, supported_efforts(p, catalog))
+    cmd = ["agy", "--model", model, "--sandbox", "--add-dir", cwd, "--output-format", "json"]
     if len(prompt.encode()) > AGY_MAX_ARG:
         prompt_file = home / f"prompt-{uuid.uuid4().hex}.md"
         prompt_file.write_text(prompt)
@@ -376,17 +408,44 @@ def _parse_codex_models(raw: str) -> list[dict]:
     ]
 
 
+_AGY_EFFORT_SUFFIX = re.compile(r"-(low|medium|high)$")
+
+
 def _parse_agy_models(raw: str) -> list[dict]:
-    rows = [line.split("\t", 1) for line in raw.splitlines() if "\t" in line]
-    models = [_model("agy", mid.strip(), name.strip(), None, AGENT_EFFORTS["agy"]) for mid, name in rows]
-    # ponytail: listing is newest-first; first gemini pro-high/flash-high/flash-low become the roles
-    for role, want in (("flagship", ("pro", "-high")), ("workhorse", ("flash", "-high")),
-                       ("fast", ("flash", "-low"))):
-        for m in models:
-            if m["model"].startswith("gemini") and want[0] in m["model"] and m["model"].endswith(want[1]):
-                m["role"] = role
-                break
+    """Group `agy models` variants by base: `gemini-3.8-flash-{low,medium,high}` → one model
+    `gemini-3.8-flash` whose efforts are the variants. Listing is newest-first."""
+    bases: dict[str, dict] = {}
+    for line in raw.splitlines():
+        if "\t" not in line:
+            continue
+        mid, name = (part.strip() for part in line.split("\t", 1))
+        suffix = _AGY_EFFORT_SUFFIX.search(mid)
+        base = mid[: suffix.start()] if suffix else mid
+        label = re.sub(r"\s*\((Low|Medium|High)\)$", "", name)
+        m = bases.setdefault(base, _model("agy", base, label, None, []))
+        if suffix and suffix.group(1) not in m["efforts"]:
+            m["efforts"].append(suffix.group(1))
+    models = list(bases.values())
+    for m in models:
+        m["efforts"].sort(key=EFFORTS.index)
+    # ponytail: newest gemini pro is flagship, newest gemini flash is workhorse (and fast at low effort)
+    for role, kind in (("flagship", "-pro"), ("workhorse", "-flash")):
+        m = next((m for m in models if m["model"].startswith("gemini") and kind in m["model"]), None)
+        if m:
+            m["role"] = role
     return models
+
+
+def base_model(p: Participant) -> str:
+    """The catalog id for a Participant: agy variant ids map to their base."""
+    return _AGY_EFFORT_SUFFIX.sub("", p.model) if p.agent == "agy" else p.model
+
+
+def agy_model_id(model: str, effort: str | None, efforts: list[str]) -> str:
+    """The concrete agy model for a base + effort; full variant ids pass through unchanged."""
+    if _AGY_EFFORT_SUFFIX.search(model) or not efforts:
+        return model
+    return f"{model}-{clamp_effort(effort or 'medium', efforts)}"
 
 
 def _parse_grok_models(raw: str) -> list[dict]:
@@ -454,18 +513,25 @@ async def discover(refresh: bool = False) -> dict[str, dict]:
     return agents
 
 
-def resolve_preset(name: str, catalog: dict[str, dict]) -> list[str]:
-    """One Participant per available Agent, by role; claude first so it writes the Synthesis."""
+def resolve_preset(name: str, catalog: dict[str, dict], agents: list[str] | None = None) -> list[str]:
+    """One Participant per available Agent (optionally only `agents`), by role; claude first
+    so it writes the Synthesis."""
     if name not in PRESETS:
         raise ValueError(f"Unknown preset '{name}': use one of {', '.join(PRESETS)}")
+    unknown = set(agents or ()) - set(AGENTS)
+    if unknown:
+        raise ValueError(f"Unknown agents {sorted(unknown)}: use any of {', '.join(AGENTS)}")
     role, effort = PRESETS[name]
     out = []
     for agent in AGENTS:
+        if agents and agent not in agents:
+            continue
         entry = catalog.get(agent) or {}
         if entry.get("status") != "ok" or not entry["models"]:
             continue
         # Agents without role tiers (grok lists a single default model) fall back to their first model.
-        m = next((m for m in entry["models"] if m["role"] == role), entry["models"][0])
+        m = next((m for m in entry["models"] if m["role"] == role), None) or next(
+            (m for m in entry["models"] if m["role"] == "workhorse"), entry["models"][0])
         out.append(f"{agent}:{m['model']}@{clamp_effort(effort, m['efforts'])}")
     return out
 
@@ -475,7 +541,8 @@ async def ping(agent: str, catalog: dict[str, dict], timeout: float = 120) -> di
     entry = catalog.get(agent) or {}
     if entry.get("status") != "ok":
         return {"ok": False, "detail": entry.get("detail", "unavailable")}
-    fast = next((m for m in entry["models"] if m["role"] == "fast"), entry["models"][0])
+    fast = next((m for m in entry["models"] if m["role"] == "fast"), None) or next(
+        (m for m in entry["models"] if m["role"] == "workhorse"), entry["models"][0])
     p = Participant(agent, fast["model"], clamp_effort("low", fast["efforts"]))
     start = time.monotonic()
     try:

@@ -21,6 +21,12 @@ def run(coro):
         loop.close()
 
 
+@pytest.fixture(autouse=True)
+def isolated_homes(tmp_path, monkeypatch):
+    """Keep every test away from the real ~/.quorum isolation homes and login files."""
+    monkeypatch.setattr(ac, "HOMES_DIR", tmp_path / "homes")
+
+
 def test_parse_participant():
     p = ac.parse_participant("claude:opus@high")
     assert (p.agent, p.model, p.effort, p.id) == ("claude", "opus", "high", "claude:opus@high")
@@ -55,15 +61,28 @@ def test_parse_codex_models_roles_by_priority():
     assert models[1]["efforts"] == ["low", "max"] and models[0]["efforts"] == ["high"]
 
 
-def test_parse_agy_models_roles():
+def test_parse_agy_models_groups_effort_variants():
     raw = ("Fetching available models...\n"
-           "gemini-3.8-flash-high\tFlash High\ngemini-3.8-flash-low\tFlash Low\n"
-           "gemini-3.7-flash-high\tOld\ngemini-3.1-pro-high\tPro High\nclaude-opus-4-6\tOpus\n")
-    roles = {m["model"]: m["role"] for m in ac._parse_agy_models(raw)}
-    assert roles["gemini-3.1-pro-high"] == "flagship"
-    assert roles["gemini-3.8-flash-high"] == "workhorse"
-    assert roles["gemini-3.8-flash-low"] == "fast"
-    assert roles["gemini-3.7-flash-high"] is None and roles["claude-opus-4-6"] is None
+           "gemini-3.8-flash-high\tGemini 3.8 Flash (High)\ngemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n"
+           "gemini-3.8-flash-medium\tGemini 3.8 Flash (Medium)\ngemini-3.7-flash-high\tOld\n"
+           "gemini-3.1-pro-high\tGemini 3.1 Pro (High)\ngemini-3.1-pro-low\tGemini 3.1 Pro (Low)\n"
+           "claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)\n")
+    models = {m["model"]: m for m in ac._parse_agy_models(raw)}
+    assert list(models) == ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.1-pro", "claude-sonnet-4-6"]
+    assert models["gemini-3.8-flash"]["efforts"] == ["low", "medium", "high"]
+    assert models["gemini-3.8-flash"]["description"] == "Gemini 3.8 Flash"
+    assert models["gemini-3.1-pro"]["efforts"] == ["low", "high"]
+    assert models["claude-sonnet-4-6"]["efforts"] == []
+    assert models["gemini-3.1-pro"]["role"] == "flagship" and models["gemini-3.8-flash"]["role"] == "workhorse"
+
+
+def test_agy_effort_selects_model_variant():
+    assert ac.agy_model_id("gemini-3.1-pro", "xhigh", ["low", "high"]) == "gemini-3.1-pro-high"
+    assert ac.agy_model_id("gemini-3.1-pro", "medium", ["low", "high"]) == "gemini-3.1-pro-low"
+    assert ac.agy_model_id("gemini-3.8-flash", None, ["low", "medium", "high"]) == "gemini-3.8-flash-medium"
+    assert ac.agy_model_id("gemini-3.1-pro-high", "low", ["low", "high"]) == "gemini-3.1-pro-high"
+    assert ac.agy_model_id("claude-sonnet-4-6", "high", []) == "claude-sonnet-4-6"
+    assert ac.base_model(ac.Participant("agy", "gemini-3.1-pro-high")) == "gemini-3.1-pro"
 
 
 def test_parse_grok_models_default_first():
@@ -87,6 +106,10 @@ def test_resolve_preset_orders_agents_and_skips_unavailable():
     assert ac.resolve_preset("quick", catalog) == ["claude:fable@low", "agy:gemini-pro-high@low"]
     with pytest.raises(ValueError):
         ac.resolve_preset("huge", catalog)
+    assert ac.resolve_preset("deep", catalog, agents=["agy"]) == ["agy:gemini-pro-high@high"]
+    assert ac.resolve_preset("deep", catalog, agents=["codex"]) == []  # chosen but unavailable
+    with pytest.raises(ValueError, match="Unknown agents"):
+        ac.resolve_preset("deep", catalog, agents=["gemini"])
 
 
 def test_render_prompt_has_preamble_role_and_task():
@@ -164,7 +187,6 @@ def test_call_participant_grok_read_only_isolated(tmp_path, monkeypatch):
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
-    monkeypatch.setattr(ac, "HOMES_DIR", tmp_path / "homes")
 
     p = ac.Participant("grok", "grok-4.7", "max")
     info = json.loads(run(ac.call_participant(p, "hi", str(tmp_path))))
@@ -176,11 +198,25 @@ def test_call_participant_grok_read_only_isolated(tmp_path, monkeypatch):
     assert not list((tmp_path / "homes" / "grok").glob("prompt-*"))  # prompt file cleaned up
 
 
-def test_link_repairs_replaced_symlink(tmp_path):
-    target = tmp_path / "auth.json"
-    target.write_text("real")
+def test_sync_login_hands_rotated_token_back(tmp_path):
+    real = tmp_path / "real" / "auth.json"
+    real.parent.mkdir()
+    real.write_text("old token")
     link = tmp_path / "home" / "auth.json"
-    link.parent.mkdir()
-    link.write_text("stale copy")  # a CLI replaced our symlink by rename
-    ac._link(target, link)
-    assert link.is_symlink() and link.read_text() == "real"
+
+    ac._sync_login(real, link)
+    assert link.is_symlink() and link.read_text() == "old token"
+
+    # The CLI saves a rotated token by rename, replacing our symlink with a newer regular file
+    link.unlink()
+    link.write_text("rotated token")
+    ac._sync_login(real, link)
+    assert link.is_symlink() and real.read_text() == "rotated token"
+    assert oct(real.stat().st_mode & 0o777) == "0o600"
+
+    # A stale regular file (older than the real login) is dropped, not copied back
+    link.unlink()
+    link.write_text("stale")
+    os.utime(link, (1, 1))
+    ac._sync_login(real, link)
+    assert real.read_text() == "rotated token" and link.is_symlink()

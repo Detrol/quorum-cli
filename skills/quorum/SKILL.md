@@ -12,12 +12,20 @@ user asks for one.
 
 ## Flow
 
-1. **Pick participants.** Map the user's wording to a preset when it fits: "quick" → `quick`,
-   no qualifier → `balanced`, "deep"/"thorough"/high stakes → `deep`. Presets give one
-   participant per available agent, so three model families argue. When the user names models,
-   agents or effort, call `quorum_list_models` and build explicit ids
-   `agent:model@effort` from its catalog. Use only model ids that the catalog lists, because
-   they are current. Put the strongest participant first, since it writes the synthesis.
+1. **Ask for level and agents.** Call `quorum_list_models` first, so you know which agents are
+   logged in and which models each level resolves to. Then ask the user both questions in one
+   round, with your host's question tool if it has one (`AskUserQuestion` in Claude Code), or
+   else in chat, and wait for the answer:
+   - **Level**, single choice: `quick` (fast models, low effort, ~2 min), `balanced` (workhorse
+     models, medium effort) or `deep` (flagship models, high effort; slowest and heaviest on
+     quota). Show the models each level resolves to, taken from `presets`.
+   - **Agents**, multi-select from the agents with status `ok`, all selected by default. At least
+     two must be chosen.
+
+   Skip a question only when the user's request already answers it ("a deep Quorum with claude
+   and codex"). When the user names exact models or efforts, build explicit ids
+   `agent:model@effort` from the catalog instead, and put the strongest first, because the first
+   participant writes the synthesis. Otherwise pass `preset` and `agents`.
 2. **Pick a method** when the question calls for one (see `methods` in `quorum_list_models`):
    `tradeoff` for A-vs-B, `delphi` for estimates, `advocate` to stress-test a plan, `oxford`
    for a for/against debate (even count), `brainstorm` for ideas. Otherwise `standard`.

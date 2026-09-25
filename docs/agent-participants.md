@@ -31,12 +31,13 @@ Terms: see `CONTEXT.md`.
   -s read-only --skip-git-repo-check --ephemeral -o <file> -` with an isolated `CODEX_HOME` holding only a
   symlink to `auth.json` (drops config, hooks, plugins, global AGENTS.md). `--search` is a top-level flag.
   Catalog: `codex debug models` (`visibility == "list"`, `priority` 1 = frontier, 2 = workhorse, 3 = fast).
-- **agy 1.2**: `agy --model <id> --effort <low|medium|high> --sandbox --add-dir <cwd> --output-format json
+- **agy 1.2**: `agy --model <base>-<low|medium|high> --sandbox --add-dir <cwd> --output-format json
   --print=<prompt>` with an isolated `HOME` holding symlinks to the OAuth files and a generated
   `settings.json` whose `permissions.allow` lists read/web tools and `permissions.deny` lists
   command/write/edit. Headless mode auto-denies unlisted tools and then aborts the whole answer; an explicit
   deny lets the model continue. `--mode plan` is prompt-only and is ignored with
-  `--disable-slash-commands`, so it is not used. Catalog: `agy models` (also proves login).
+  `--disable-slash-commands`, so it is not used. `--effort` has no effect with gemini models: effort is the
+  model variant suffix, so the catalog groups variants by base. Catalog: `agy models` (also proves login).
 
 - **grok 1.0** (added 2026-09-25): `grok --prompt-file <file> --model <id> --effort <low..xhigh>
   --tools read_file,list_dir,grep,web_fetch --allow read_file --allow list_dir --allow grep --allow WebFetch
@@ -49,6 +50,11 @@ Terms: see `CONTEXT.md`.
   Project-level `.grok/config.toml`, `.mcp.json`, `.grok/rules`, project skills and `AGENTS.md` stay unloaded
   because the isolated home has no trusted folders, so every project is untrusted (verified 2026-09-25 with
   marker MCP servers that were never started). Do not add trusted folders to the isolated home.
+
+- **Login files**: isolation homes symlink each CLI's login. grok saves a refreshed, rotated token by
+  renaming a new file into place, which replaced the symlink and left the user's own login invalid
+  (seen 2026-09-25). After every agent process a newer regular file is copied back over the real login
+  and relinked (`_resync_logins`). `GROK_AUTH_PATH` and `GROK_AUTH_PROVIDER_ACCESS_TOKEN` did not work.
 
 ## Tasks
 

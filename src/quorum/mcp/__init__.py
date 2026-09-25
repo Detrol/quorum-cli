@@ -27,6 +27,7 @@ from quorum.clients.agent_cli import (
     PRESETS,
     RUN_CWD,
     RUN_FAILED,
+    base_model,
     discover,
     parse_participant,
     ping,
@@ -302,7 +303,9 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
     method = args.get("method", "standard")
     effort = args.get("effort")
     catalog = await discover()
-    ids = args.get("participants") or resolve_preset(args.get("preset", "balanced"), catalog)
+    ids = args.get("participants") or resolve_preset(
+        args.get("preset", "balanced"), catalog, args.get("agents")
+    )
     participants = [parse_participant(pid, effort) for pid in ids]
 
     for p in participants:
@@ -310,7 +313,7 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
         if entry.get("status") != "ok":
             raise ValueError(f"{p.agent} is unavailable: {entry.get('detail', 'unknown')}")
         known = {m["model"] for m in entry["models"]}
-        if p.agent != "claude" and p.model not in known:  # claude also accepts full model ids
+        if p.agent != "claude" and base_model(p) not in known:  # claude also accepts full model ids
             raise ValueError(f"Unknown {p.agent} model '{p.model}'. Known: {', '.join(sorted(known))}")
 
     max_participants = int(args.get("max_participants", DEFAULT_MAX_PARTICIPANTS))
@@ -392,7 +395,7 @@ async def read_resource(uri: Any) -> str:
 
 PARTICIPANT_HELP = (
     "Participant ids are 'agent:model@effort', e.g. 'claude:opus@high', 'codex:gpt-6-sol@medium', "
-    "'agy:gemini-3.1-pro-high'. The first participant writes the synthesis, so put the strongest first."
+    "'agy:gemini-3.1-pro@high', 'grok:grok-4.7@medium'. The first participant writes the synthesis, so put the strongest first."
 )
 
 
@@ -416,6 +419,8 @@ async def list_tools() -> list[types.Tool]:
             name="quorum_start",
             description=(
                 "Start a Quorum discussion between agent CLIs. Only use when the user asks for one. "
+                "Before calling, ask the user which level (quick/balanced/deep) and which agents to use, "
+                "unless they already said. "
                 "Participants can read the project (read-only) and search the web. Returns a run_id "
                 "immediately; then call quorum_wait until the status is 'done' or 'failed', and present "
                 "the synthesis to the user. " + PARTICIPANT_HELP
@@ -437,6 +442,11 @@ async def list_tools() -> list[types.Tool]:
                             "Used when participants is omitted: one participant per available agent. "
                             "quick = fast models/low effort, balanced = workhorse/medium, deep = flagship/high."
                         ),
+                    },
+                    "agents": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": list(AGENTS)},
+                        "description": "With a preset: only these agents take part. Default: all available.",
                     },
                     "effort": {
                         "type": "string",

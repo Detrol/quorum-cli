@@ -64,11 +64,13 @@ codex plugin add quorum@quorum
 
 The plugin starts the server with `uvx --from quorum-cli quorum-mcp-server`, so [uv](https://github.com/astral-sh/uv)
 must be on PATH. Then ask, for example:
-> "Run a deep Quorum on whether we should split this service"
+> "Run a Quorum on whether we should split this service"
+
+The agent asks which level and which agents to use before it starts, unless you already said.
 
 **MCP tools:**
 - `quorum_list_models` - Agents, login status, current models with roles and effort levels, presets
-- `quorum_start` - Start a run: preset (`quick`/`balanced`/`deep`) or explicit `agent:model@effort` participants, any of the 7 methods
+- `quorum_start` - Start a run: preset (`quick`/`balanced`/`deep`) limited to chosen `agents`, or explicit `agent:model@effort` participants, any of the 7 methods
 - `quorum_wait` - Poll a run in slices until the synthesis is ready (safe under client tool timeouts)
 - `quorum_check` - Real ping to every agent
 
