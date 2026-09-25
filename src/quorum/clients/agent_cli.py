@@ -46,7 +46,6 @@ API_EFFORTS = {
     "google": ["low", "medium", "high"],
     "xai": ["low", "high"],
 }
-PRESETS = {"quick": ("fast", "low"), "balanced": ("workhorse", "medium"), "deep": ("flagship", "high")}
 
 CATALOG_FILE = CACHE_DIR / "agent_catalog.json"
 CATALOG_TTL = 3600
@@ -525,33 +524,6 @@ async def discover(refresh: bool = False) -> dict[str, dict]:
     CATALOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     CATALOG_FILE.write_text(json.dumps({"at": time.time(), "agents": agents}))
     return agents
-
-
-def resolve_preset(name: str, catalog: dict[str, dict], providers: list[str] | None = None) -> list[str]:
-    """One Participant per available provider, by role; claude first so it writes the Synthesis.
-
-    Without `providers` only the Agents take part, so a preset never spends API credit
-    unasked. API and local providers have no roles and get their first configured model.
-    """
-    if name not in PRESETS:
-        raise ValueError(f"Unknown preset '{name}': use one of {', '.join(PRESETS)}")
-    unknown = set(providers or ()) - set(PROVIDERS)
-    if unknown:
-        raise ValueError(f"Unknown providers {sorted(unknown)}: use any of {', '.join(PROVIDERS)}")
-    role, effort = PRESETS[name]
-    out = []
-    for provider in (PROVIDERS if providers else AGENTS):
-        if providers and provider not in providers:
-            continue
-        entry = catalog.get(provider) or {}
-        if entry.get("status") != "ok" or not entry["models"]:
-            continue
-        # No role tiers (grok, API providers): workhorse, else the first model.
-        m = next((m for m in entry["models"] if m["role"] == role), None) or next(
-            (m for m in entry["models"] if m["role"] == "workhorse"), entry["models"][0])
-        e = clamp_effort(effort, m["efforts"]) if m["efforts"] else None
-        out.append(f"{provider}:{m['model']}" + (f"@{e}" if e else ""))
-    return out
 
 
 async def ping(agent: str, catalog: dict[str, dict], timeout: float = 120) -> dict[str, Any]:

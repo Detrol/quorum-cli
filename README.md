@@ -75,12 +75,12 @@ yourself: `claude mcp add quorum --scope user -- quorum-mcp-server`.
 Then ask, for example:
 > "Run a Quorum on whether we should split this service"
 
-Before it starts, the agent asks which providers and models to use. The level (quick, balanced
-or deep) preselects a model and effort for each provider.
+Before it starts, the agent asks which providers to use, then which of each provider's models.
+Add `@effort` to a model (e.g. `opus@high`) to set its effort.
 
 **MCP tools:**
-- `quorum_list_models` - Providers with status, models, roles and effort levels, presets and preselected models
-- `quorum_start` - Start a run with `provider:model@effort` participants (e.g. `claude:opus@high`, `openai:gpt-5.5@medium`, `ollama:qwen3:8b`) or a preset, any of the 7 methods
+- `quorum_list_models` - Providers with status, models, roles and effort levels
+- `quorum_start` - Start a run with `provider:model@effort` participants (e.g. `claude:opus@high`, `openai:gpt-5.5@medium`, `ollama:qwen3:8b`), any of the 7 methods
 - `quorum_wait` - Poll a run in slices until the synthesis is ready (safe under client tool timeouts)
 - `quorum_check` - Real ping to every agent CLI
 - `quorum_discuss` - Deprecated v1.1 interface (blocking; bare model ids from `*_MODELS` still work)

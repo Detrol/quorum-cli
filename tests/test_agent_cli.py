@@ -94,33 +94,6 @@ def test_parse_grok_models_default_first():
     assert models[0]["efforts"] == ["low", "medium", "high", "xhigh"]
 
 
-def test_resolve_preset_orders_agents_and_skips_unavailable():
-    def entry(model, role, efforts, status="ok"):
-        return {"status": status, "models": [{"model": model, "role": role, "efforts": efforts}]}
-
-    catalog = {
-        "agy": entry("gemini-pro-high", "flagship", ["low", "medium", "high"]),
-        "codex": entry("astra", "flagship", ["low", "high"], status="unavailable"),
-        "claude": entry("fable", "flagship", list(ac.EFFORTS)),
-    }
-    assert ac.resolve_preset("deep", catalog) == ["claude:fable@high", "agy:gemini-pro-high@high"]
-    # No "fast" role anywhere: each agent falls back to its first model
-    assert ac.resolve_preset("quick", catalog) == ["claude:fable@low", "agy:gemini-pro-high@low"]
-    with pytest.raises(ValueError):
-        ac.resolve_preset("huge", catalog)
-    assert ac.resolve_preset("deep", catalog, providers=["agy"]) == ["agy:gemini-pro-high@high"]
-    assert ac.resolve_preset("deep", catalog, providers=["codex"]) == []  # chosen but unavailable
-    with pytest.raises(ValueError, match="Unknown providers"):
-        ac.resolve_preset("deep", catalog, providers=["gemini"])
-
-    # API/local providers join only when chosen; no effort where the provider has none
-    catalog["openai"] = entry("gpt-5.5", None, ["low", "medium", "high"])
-    catalog["ollama"] = entry("qwen3:8b", None, [])
-    assert "openai:gpt-5.5@high" not in ac.resolve_preset("deep", catalog)
-    assert ac.resolve_preset("deep", catalog, providers=["openai", "ollama"]) == [
-        "openai:gpt-5.5@high", "ollama:qwen3:8b"]
-
-
 def test_render_prompt_has_preamble_role_and_task():
     text = ac.render_prompt([SystemMessage(content="Be the critic"), UserMessage(content="Q?")])
     assert text.startswith(ac.PARTICIPANT_PREAMBLE)

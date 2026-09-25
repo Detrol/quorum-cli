@@ -26,7 +26,6 @@ from mcp.server.models import InitializationOptions
 from quorum.clients.agent_cli import (
     AGENTS,
     EFFORTS,
-    PRESETS,
     PROVIDERS,
     RUN_CWD,
     RUN_FAILED,
@@ -35,7 +34,6 @@ from quorum.clients.agent_cli import (
     discover,
     parse_participant,
     ping,
-    resolve_preset,
     supported_efforts,
 )
 from quorum.config import CACHE_DIR, get_settings
@@ -294,11 +292,6 @@ async def _list_models(args: dict[str, Any]) -> dict[str, Any]:
     catalog = await _catalog(refresh=bool(args.get("refresh")))
     return {
         "providers": catalog,
-        "presets": {name: resolve_preset(name, catalog) for name in PRESETS},
-        "preselected": {
-            name: resolve_preset(name, catalog, [p for p, e in catalog.items() if e["status"] == "ok"])
-            for name in PRESETS
-        },
         "efforts": list(EFFORTS),
         "methods": METHOD_INFO,
         "limits": {
@@ -350,10 +343,7 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
     default_method = get_settings().default_method
     method = args.get("method") or (default_method if default_method in METHOD_INFO else "standard")
     catalog = await _catalog()
-    ids = args.get("participants") or resolve_preset(
-        args.get("preset", "balanced"), catalog, args.get("providers") or args.get("agents")
-    )
-    pids = await _validate_participants(ids, args.get("effort"), catalog)
+    pids = await _validate_participants(args["participants"], args.get("effort"), catalog)
 
     max_participants = int(args.get("max_participants", DEFAULT_MAX_PARTICIPANTS))
     if not 2 <= len(pids) <= max_participants:
@@ -464,9 +454,8 @@ async def list_tools() -> list[types.Tool]:
                 "grok; read the project and the web) and the API/local providers configured in "
                 "~/.quorum/.env (openai, anthropic, google, xai, openrouter, lmstudio, llamaswap, custom, "
                 "ollama; no tools, they see only the question and files). Gives status, models with "
-                "descriptions and roles, effort levels, presets (agents only), preselected models per "
-                "level for every available provider, methods and limits. Agent data is cached for an "
-                "hour; pass refresh=true to rediscover."
+                "descriptions, roles (flagship/workhorse/fast) and effort levels, plus methods and "
+                "limits. Agent data is cached for an hour; pass refresh=true to rediscover."
             ),
             inputSchema={
                 "type": "object",
@@ -477,7 +466,7 @@ async def list_tools() -> list[types.Tool]:
             name="quorum_start",
             description=(
                 "Start a Quorum discussion between agent CLIs. Only use when the user asks for one. "
-                "Before calling, let the user pick providers and models (level preselects them), "
+                "Before calling, let the user pick providers, then a model per provider, "
                 "unless they already said. "
                 "Participants can read the project (read-only) and search the web. Returns a run_id "
                 "immediately; then call quorum_wait until the status is 'done' or 'failed', and present "
@@ -490,34 +479,15 @@ async def list_tools() -> list[types.Tool]:
                     "participants": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Explicit participant ids. Omit to use the preset. " + PARTICIPANT_HELP,
-                    },
-                    "preset": {
-                        "type": "string",
-                        "enum": list(PRESETS),
-                        "default": "balanced",
-                        "description": (
-                            "Used when participants is omitted: one participant per available agent. "
-                            "quick = fast models/low effort, balanced = workhorse/medium, deep = flagship/high."
-                        ),
-                    },
-                    "providers": {
-                        "type": "array",
-                        "items": {"type": "string", "enum": list(PROVIDERS)},
-                        "description": (
-                            "With a preset: only these providers take part, API/local ones included. "
-                            "Default: all available agents (never API providers unasked)."
-                        ),
-                    },
-                    "agents": {
-                        "type": "array",
-                        "items": {"type": "string", "enum": list(AGENTS)},
-                        "description": "Deprecated alias of providers (agents only).",
+                        "description": "Participants the user picked, strongest first. " + PARTICIPANT_HELP,
                     },
                     "effort": {
                         "type": "string",
                         "enum": list(EFFORTS),
-                        "description": "Default effort for participants that do not give '@effort'.",
+                        "description": (
+                            "Effort for participants without '@effort'. Default: none, so each "
+                            "provider uses its own default."
+                        ),
                     },
                     "method": {
                         "type": "string",
@@ -540,7 +510,7 @@ async def list_tools() -> list[types.Tool]:
                     "turn_timeout_minutes": {"type": "number", "default": DEFAULT_TURN_MINUTES},
                     "total_timeout_minutes": {"type": "number", "default": DEFAULT_TOTAL_MINUTES},
                 },
-                "required": ["question"],
+                "required": ["question", "participants"],
             },
         ),
         types.Tool(

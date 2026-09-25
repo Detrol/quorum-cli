@@ -16,10 +16,6 @@
 
 **Effort**: How hard a Participant thinks, on one shared scale — `low`, `medium`, `high`, `xhigh`, `max` — translated to each Agent's own setting and clamped to what the model supports.
 
-**Preset**: A named recipe (`quick`, `balanced`, `deep`) that resolves to one Participant per available Agent by role (fast / workhorse / flagship), never by a fixed model version. API and local providers join a Preset only when chosen explicitly.
-
-**Level**: The user's pick of `quick`, `balanced` or `deep` when choosing Participants; it preselects each Provider's model and Effort from the matching Preset.
-
 **Run**: One started Discussion with an id, a status and a transcript. The calling agent starts a Run and waits on it in slices.
 
 **Dropped Participant**: A Participant that failed (error or timeout) during a Run. The Run continues while at least two Participants remain.

@@ -11,7 +11,7 @@ Terms: see `CONTEXT.md`.
 | Participants | Agent CLIs only on the MCP surface. API clients stay for the TUI. |
 | Access | Read-only in the project + web search. No writes. |
 | Isolation | Participants never load the user's hooks, plugins, skills, MCP servers, memory or instruction files (global or project). Nested Runs refused (`QUORUM_PARTICIPANT=1`). |
-| Model choice | Catalog discovered from each CLI (1 h cache); Presets resolve by role; the caller may pass exact Participants. |
+| Model choice | Catalog discovered from each CLI (1 h cache). The user picks providers, then a model per provider; no presets (removed in 1.5.0). |
 | Effort | Per Participant on one scale, default per Run. |
 | Liveness | Discovery checks binary + login (free). Phase 1 is the ping. `quorum_check` does a real ping on request. |
 | Flow | `quorum_start` → `quorum_wait` in slices (safe under client tool timeouts). |
@@ -27,7 +27,7 @@ that: `*_MODELS` lists, Ollama auto-discovery, `QUORUM_METHOD` / `QUORUM_SYNTHES
 `QUORUM_ROUNDS_PER_AGENT` / `QUORUM_EXECUTION_MODE`. The server forces `~/.quorum/.env`
 (`QUORUM_GLOBAL_CONFIG`), because its cwd is the calling agent's project. Participants are
 `provider:model@effort`; bare ids resolve through `*_MODELS` like the TUI. API/local participants
-have no tools. Presets include only Agents unless providers are chosen. `quorum_discuss` (v1.1) is
+have no tools. `quorum_discuss` (v1.1) is
 kept as a deprecated blocking wrapper. API effort was verified only against mocked SDK calls; no
 API keys were available.
 

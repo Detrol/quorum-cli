@@ -11,17 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **API and local providers in MCP again** - the models in `~/.quorum/.env` (OpenAI, Anthropic, Google, xAI, OpenRouter, LM Studio, llama-swap, custom, Ollama) take part alongside agent CLIs, as `provider:model@effort`
 - Effort for API models: `reasoning_effort` (OpenAI, Google, xAI) and adaptive thinking with `output_config.effort` (Anthropic); only sent when chosen
-- `quorum_list_models` lists every provider with kind, tools and status, plus `preselected` models per level
-- `quorum_start` takes `providers` (API/local included); `agents` stays as an alias
+- `quorum_list_models` lists every provider with kind, tools and status
 - `quorum_discuss` is back as a deprecated, blocking v1.1-compatible tool; bare `*_MODELS` ids work in all tools
 - `QUORUM_METHOD` sets the default method in MCP (documented before, but never read)
 
 ### Changed
 
-- The skill lets the user pick providers, then a model per provider, with the level preselecting
+- The skill lets the user pick providers, then a model per provider; it no longer asks about a level
 - MCP respects `QUORUM_SYNTHESIZER` instead of always using the first participant
 - MCP always reads `~/.quorum/.env`, never a `.env` in the calling agent's project directory
-- Presets still include only agent CLIs unless providers are chosen, so no API credit is spent unasked
+- **Presets removed** (`quick`/`balanced`/`deep`, and `preset`/`agents` on `quorum_start`): participants are always the models the user picked. Effort is sent only when given as `@effort`
 
 ### Fixed
 

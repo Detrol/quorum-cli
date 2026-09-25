@@ -15,25 +15,23 @@ user asks for one.
 
 ## Flow
 
-1. **Let the user pick providers and models.** Call `quorum_list_models` first. Only providers
-   with status `ok` are offered. Ask with your host's question tool if it has one
+1. **Let the user pick providers, then models.** Call `quorum_list_models` first; offer only
+   providers with status `ok`. Ask with your host's question tool if it has one
    (`AskUserQuestion` in Claude Code: at most 4 questions per call, 2–4 options each, plus a
-   free-text "Other"), otherwise in chat, and wait for each answer:
-   - **Round 1, level and providers.** Level, single choice: `quick` (fast models, low effort),
-     `balanced` (workhorse, medium) or `deep` (flagship, high; slowest, heaviest on quota). It
-     only sets the preselected model and effort per provider (`preselected` in the catalog).
-     Providers, multi-select, at least two participants in total. Agents first; mark API and
-     local ones as "no project or web access". When more than four providers are available,
-     list them in chat and let the user answer with names.
+   free-text "Other"), otherwise in chat, and wait for each answer.
+   - **Round 1, providers**, multi-select, at least two participants in total. Agents first; mark
+     API and local providers "no project or web access". When more than four providers are
+     available, list them in chat and let the user answer with names.
    - **Round 2, one model per chosen provider** (up to four questions per call; more providers,
-     more calls). The first option is the preselected model, marked "(Recommended)", followed
-     by up to two other models from that provider's catalog entry. The user can type any other
-     listed model or `model@effort` under "Other". Skip providers with a single model.
+     more calls), options taken from that provider's catalog entry with their descriptions. Mark
+     the provider's `workhorse` model, or else its first model, "(Recommended)". The user can type
+     any other listed model, or `model@effort`, under "Other". Skip the question for a provider
+     with a single model.
 
-   Skip what the user's request already answers ("a deep Quorum with claude and gpt-5.5").
-   Build ids `provider:model@effort` from the catalog, leaving effort off for providers whose
-   `efforts` list is empty, and put the strongest first because the first participant writes the
-   synthesis. Pass them as `participants`.
+   Skip whatever the request already answers ("a Quorum with claude and gpt-5.5"). Add `@effort`
+   only when the user asks for one; otherwise each provider uses its own default. Build ids
+   `provider:model@effort` and put the strongest first, because with the default settings the
+   first participant writes the synthesis. Pass them as `participants`.
 2. **Pick a method** when the question calls for one (see `methods` in `quorum_list_models`):
    `tradeoff` for A-vs-B, `delphi` for estimates, `advocate` to stress-test a plan, `oxford`
    for a for/against debate (even count), `brainstorm` for ideas. Otherwise `standard`.
