@@ -1,7 +1,7 @@
 # Spec: Agent Participants + MCP plugin
 
 Goal: let Claude Code and Codex (on the user's request, never automatically) run a Quorum
-Discussion between agent CLIs — claude, codex, agy — with deliberate model and Effort choice.
+Discussion between agent CLIs — claude, codex, agy, grok — with deliberate model and Effort choice.
 Terms: see `CONTEXT.md`.
 
 ## Decisions
@@ -37,6 +37,18 @@ Terms: see `CONTEXT.md`.
   command/write/edit. Headless mode auto-denies unlisted tools and then aborts the whole answer; an explicit
   deny lets the model continue. `--mode plan` is prompt-only and is ignored with
   `--disable-slash-commands`, so it is not used. Catalog: `agy models` (also proves login).
+
+- **grok 1.0** (added 2026-09-25): `grok --prompt-file <file> --model <id> --effort <low..xhigh>
+  --tools read_file,list_dir,grep,web_fetch --allow read_file --allow list_dir --allow grep --allow WebFetch
+  --no-subagents --output-format json` with `HOME` set to an isolated dir holding only a symlink to
+  `~/.grok/auth.json`, plus `GROK_{CLAUDE,CODEX,CURSOR}_{AGENTS,HOOKS,MCPS,RULES,SKILLS,SESSIONS}_ENABLED=0`
+  (grok otherwise imports Claude/Codex/Cursor rules, skills, plugins, hooks and MCP servers). Headless mode
+  cancels the whole turn on any permission prompt; `web_fetch` prompts outside a built-in domain allowlist,
+  hence `--allow WebFetch`. There is no web search tool, only fetch. Catalog: `grok models` (`* id (default)`),
+  which also proves login; the first call after idle can race a token refresh, so discovery retries once.
+  Project-level `.grok/config.toml`, `.mcp.json`, `.grok/rules`, project skills and `AGENTS.md` stay unloaded
+  because the isolated home has no trusted folders, so every project is untrusted (verified 2026-09-25 with
+  marker MCP servers that were never started). Do not add trusted folders to the isolated home.
 
 ## Tasks
 

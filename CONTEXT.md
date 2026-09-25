@@ -4,7 +4,7 @@
 
 **Method**: The phase structure of a Discussion (standard, oxford, advocate, socratic, delphi, brainstorm, tradeoff).
 
-**Agent**: An installed agent CLI that can take part in Discussions on the user's own subscription — `claude`, `codex` or `agy` (Antigravity). Not the same as an API provider.
+**Agent**: An installed agent CLI that can take part in Discussions on the user's own subscription — `claude`, `codex`, `agy` (Antigravity) or `grok`. Not the same as an API provider.
 
 **Participant**: One Agent + one model + one Effort taking part in a specific Discussion. Written `agent:model@effort`, e.g. `claude:opus@high`. The same model reached through two Agents is two different Participants.
 

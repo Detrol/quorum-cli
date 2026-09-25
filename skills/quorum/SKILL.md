@@ -1,6 +1,6 @@
 ---
 name: quorum
-description: Run a structured debate between agent CLIs (claude, codex, agy) through the Quorum MCP tools. Use only when the user explicitly asks for a Quorum, a debate, a multi-agent discussion, or a second opinion from other models — never on your own initiative.
+description: Run a structured debate between agent CLIs (claude, codex, agy, grok) through the Quorum MCP tools. Use only when the user explicitly asks for a Quorum, a debate, a multi-agent discussion, or a second opinion from other models — never on your own initiative.
 ---
 
 # Quorum
@@ -33,7 +33,7 @@ user asks for one.
 ## When something fails
 
 - `quorum_start` names the unavailable agent or unknown model. Fix the ids, or tell the user
-  which login is missing (`claude auth login`, `codex login`, or `agy` interactively).
+  which login is missing (`claude auth login`, `codex login`, `grok login`, or `agy` interactively).
 - A dropped participant does not stop the run. It fails only if fewer than two remain.
 - `quorum_check` does a real ping to every agent. Use it when the user asks whether Quorum
   works, or after an unexplained failure.

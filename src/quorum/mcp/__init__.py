@@ -1,4 +1,4 @@
-"""MCP server for Quorum: discussions between agent CLIs (claude, codex, agy).
+"""MCP server for Quorum: discussions between agent CLIs (claude, codex, agy, grok).
 
 Tools: quorum_list_models, quorum_start, quorum_wait, quorum_check.
 A Run executes inside this server process; the caller waits on it in slices so long
@@ -402,7 +402,7 @@ async def list_tools() -> list[types.Tool]:
         types.Tool(
             name="quorum_list_models",
             description=(
-                "List the agent CLIs (claude, codex, agy) available as Quorum participants: login status, "
+                "List the agent CLIs (claude, codex, agy, grok) available as Quorum participants: login status, "
                 "current models with descriptions and roles (flagship/workhorse/fast), supported effort "
                 "levels, resolved presets, discussion methods and limits. Call this before quorum_start "
                 "unless you use a preset. Cached for an hour; pass refresh=true to rediscover."

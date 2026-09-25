@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - Unreleased
+## [1.3.0] - 2026-09-25
+
+### Added
+
+- **grok as agent participant** - `grok:<model>@effort` via the grok CLI on the user's own subscription
+  - Read-only tools (`read_file`, `list_dir`, `grep`, `web_fetch`) with web fetch allowed on every domain
+  - Isolated home plus harness-compat switches off, so no rules, skills, plugins, hooks or MCP servers are loaded
+  - Efforts `low`–`xhigh`; `max` clamps to `xhigh`
+
+### Changed
+
+- Presets fall back to an agent's first model when it has no role tiers (grok lists one default model)
+
+### Fixed
+
+- Isolation homes relink the user's login when a CLI replaced the symlink with a refreshed copy
+
+## [1.2.0] - 2026-09-24
 
 ### Added
 

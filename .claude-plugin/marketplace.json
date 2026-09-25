@@ -11,7 +11,7 @@
     {
       "name": "quorum",
       "source": "./",
-      "description": "Multi-agent debates between claude, codex and agy via MCP."
+      "description": "Multi-agent debates between claude, codex, agy and grok via MCP."
     }
   ]
 }

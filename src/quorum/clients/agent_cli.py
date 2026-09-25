@@ -1,4 +1,4 @@
-"""Agent CLI participants: claude, codex and agy (Antigravity) as discussion members.
+"""Agent CLI participants: claude, codex, agy (Antigravity) and grok as discussion members.
 
 Each call runs the agent headless on the user's own subscription, read-only with web
 search, and isolated from the user's agent configuration (hooks, plugins, skills,
@@ -27,12 +27,13 @@ from typing import Any
 from ..config import CACHE_DIR
 from .types import Message, SystemMessage, UserMessage
 
-AGENTS = ("claude", "codex", "agy")
+AGENTS = ("claude", "codex", "agy", "grok")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 AGENT_EFFORTS = {
     "claude": list(EFFORTS),
     "codex": ["low", "medium", "high", "xhigh"],  # fallback when the catalog is missing
     "agy": ["low", "medium", "high"],
+    "grok": ["low", "medium", "high", "xhigh"],
 }
 PRESETS = {"quick": ("fast", "low"), "balanced": ("workhorse", "medium"), "deep": ("flagship", "high")}
 
@@ -66,6 +67,16 @@ AGY_SETTINGS = {
         # Headless agy aborts the whole answer on an unlisted tool; explicit deny lets it continue.
         "deny": ["command(*)", "write_file(*)", "edit_file(*)"],
     }
+}
+GROK_TOOLS = "read_file,list_dir,grep,web_fetch"
+# Headless grok cancels the turn on any permission prompt; web_fetch prompts outside a built-in
+# domain allowlist, so allow it everywhere. Only the read tools above exist, so nothing can write.
+GROK_ALLOW = ["read_file", "list_dir", "grep", "WebFetch"]
+# grok imports other harnesses' project config (rules, skills, MCP servers, hooks) from the cwd.
+GROK_COMPAT_OFF = {
+    f"GROK_{h}_{k}_ENABLED": "0"
+    for h in ("CLAUDE", "CODEX", "CURSOR")
+    for k in ("AGENTS", "HOOKS", "MCPS", "RULES", "SKILLS", "SESSIONS")
 }
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-\[\]]*$")
 
@@ -133,8 +144,12 @@ def render_prompt(messages: list[Message]) -> str:
 
 
 def _link(target: Path, link: Path) -> None:
-    if target.exists() and not link.is_symlink():
-        link.symlink_to(target)
+    if not target.exists() or link.is_symlink():
+        return
+    # ponytail: a CLI that saved a refreshed token by rename replaced our symlink; relink to the
+    # user's real login and drop the copy. Revisit if a CLI starts rotating refresh tokens.
+    link.unlink(missing_ok=True)
+    link.symlink_to(target)
 
 
 def _codex_home() -> Path:
@@ -157,6 +172,22 @@ def _agy_home() -> Path:
     _link(real / "antigravity-cli" / "installation_id", cli / "installation_id")
     (cli / "settings.json").write_text(json.dumps(AGY_SETTINGS))
     return home
+
+
+def _grok_home() -> Path:
+    """HOME for grok with only its login: no rules, skills, plugins, hooks or MCP servers.
+
+    It has no trusted folders, so grok treats every project as untrusted and skips the project's
+    own .grok/ config, .mcp.json, rules and AGENTS.md. Never add trusted folders here.
+    """
+    home = HOMES_DIR / "grok"
+    (home / ".grok").mkdir(parents=True, exist_ok=True)
+    _link(Path.home() / ".grok" / "auth.json", home / ".grok" / "auth.json")
+    return home
+
+
+def _grok_env() -> dict[str, str]:
+    return _base_env() | GROK_COMPAT_OFF | {"HOME": str(_grok_home())}
 
 
 def _base_env() -> dict[str, str]:
@@ -240,6 +271,29 @@ async def call_participant(
         if code or not reply.strip():
             raise RuntimeError(f"codex failed (exit {code}): {_tail(err or out)}")
         return reply
+
+    if p.agent == "grok":
+        env = _grok_env()
+        prompt_file = HOMES_DIR / "grok" / f"prompt-{uuid.uuid4().hex}.md"
+        prompt_file.write_text(prompt)
+        cmd = ["grok", "--prompt-file", str(prompt_file), "--model", p.model, "--tools", GROK_TOOLS,
+               "--no-subagents", "--output-format", "json"]
+        for rule in GROK_ALLOW:
+            cmd += ["--allow", rule]
+        if effort:
+            cmd += ["--effort", effort]
+        try:
+            code, out, err = await _run(cmd, env, cwd, timeout=timeout)
+        finally:
+            prompt_file.unlink(missing_ok=True)
+        try:
+            data = json.loads(out[out.index("{"):])
+        except ValueError:
+            raise RuntimeError(f"grok failed (exit {code}): {_tail(err or out)}") from None
+        if data.get("stopReason") != "end_turn" or not data.get("text"):
+            detail = data.get("message") or data.get("stopReason") or err or out
+            raise RuntimeError(f"grok error: {_tail(str(detail))}")
+        return str(data["text"])
 
     # agy takes the prompt as an argument; oversized prompts go through a file it may read.
     home = _agy_home()
@@ -335,6 +389,14 @@ def _parse_agy_models(raw: str) -> list[dict]:
     return models
 
 
+def _parse_grok_models(raw: str) -> list[dict]:
+    """`grok models` lists `* id (default)` / `- id`; the default comes first."""
+    rows = re.findall(r"^\s*([*-])\s+(\S+)", raw, flags=re.M)
+    rows.sort(key=lambda r: r[0] != "*")
+    return [_model("grok", mid, "Default grok model." if mark == "*" else "", None, AGENT_EFFORTS["grok"])
+            for mark, mid in rows]
+
+
 async def _discover_one(agent: str) -> dict[str, Any]:
     if shutil.which(agent) is None:
         return {"status": "unavailable", "detail": "not installed", "models": []}
@@ -356,6 +418,16 @@ async def _discover_one(agent: str) -> dict[str, Any]:
             if code:
                 return {"status": "unavailable", "detail": _tail(err), "models": []}
             return {"status": "ok", "detail": "logged in", "models": _parse_codex_models(out)}
+        if agent == "grok":
+            # Listing models needs a login; the first call can race a token refresh, so retry once.
+            for _ in range(2):
+                code, out, err = await _run(["grok", "models"], _grok_env(), cwd, timeout=30)
+                if "logged in" in out:
+                    break
+            models = _parse_grok_models(out) if "logged in" in out else []
+            if not models:
+                return {"status": "unavailable", "detail": "not logged in (run: grok login)", "models": []}
+            return {"status": "ok", "detail": "logged in", "models": models}
         # agy: listing models requires a working login, so it doubles as the auth check.
         env = _base_env() | {"HOME": str(_agy_home())}
         code, out, err = await _run(["agy", "models"], env, cwd, timeout=30)
@@ -390,12 +462,11 @@ def resolve_preset(name: str, catalog: dict[str, dict]) -> list[str]:
     out = []
     for agent in AGENTS:
         entry = catalog.get(agent) or {}
-        if entry.get("status") != "ok":
+        if entry.get("status") != "ok" or not entry["models"]:
             continue
-        for m in entry["models"]:
-            if m["role"] == role:
-                out.append(f"{agent}:{m['model']}@{clamp_effort(effort, m['efforts'])}")
-                break
+        # Agents without role tiers (grok lists a single default model) fall back to their first model.
+        m = next((m for m in entry["models"] if m["role"] == role), entry["models"][0])
+        out.append(f"{agent}:{m['model']}@{clamp_effort(effort, m['efforts'])}")
     return out
 
 

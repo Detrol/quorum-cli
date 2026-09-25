@@ -48,7 +48,7 @@ quorum
 ## Claude Code & Codex plugin: agent debates (MCP)
 
 Ask your coding agent for a Quorum and it runs a structured debate between the agent CLIs
-you have installed: **claude**, **codex** and **agy** (Antigravity). Each one runs on your
+you have installed: **claude**, **codex**, **agy** (Antigravity) and **grok**. Each one runs on your
 own subscription. No API keys are needed. Participants can read your project (read-only),
 search the web, and run isolated from your hooks, plugins and instruction files.
 

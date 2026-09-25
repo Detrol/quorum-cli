@@ -66,6 +66,13 @@ def test_parse_agy_models_roles():
     assert roles["gemini-3.7-flash-high"] is None and roles["claude-opus-4-6"] is None
 
 
+def test_parse_grok_models_default_first():
+    raw = "You are logged in with grok.com.\n\nAvailable models:\n  - grok-4.6-fast\n  * grok-4.7 (default)\n"
+    models = ac._parse_grok_models(raw)
+    assert [m["model"] for m in models] == ["grok-4.7", "grok-4.6-fast"]
+    assert models[0]["efforts"] == ["low", "medium", "high", "xhigh"]
+
+
 def test_resolve_preset_orders_agents_and_skips_unavailable():
     def entry(model, role, efforts, status="ok"):
         return {"status": status, "models": [{"model": model, "role": role, "efforts": efforts}]}
@@ -76,7 +83,8 @@ def test_resolve_preset_orders_agents_and_skips_unavailable():
         "claude": entry("fable", "flagship", list(ac.EFFORTS)),
     }
     assert ac.resolve_preset("deep", catalog) == ["claude:fable@high", "agy:gemini-pro-high@high"]
-    assert ac.resolve_preset("quick", catalog) == []
+    # No "fast" role anywhere: each agent falls back to its first model
+    assert ac.resolve_preset("quick", catalog) == ["claude:fable@low", "agy:gemini-pro-high@low"]
     with pytest.raises(ValueError):
         ac.resolve_preset("huge", catalog)
 
@@ -140,3 +148,39 @@ def test_client_records_dropped_participant(fake_claude, tmp_path, monkeypatch):
         return failed
 
     assert list(run(scenario())) == ["claude:opus@low"]
+
+
+def test_call_participant_grok_read_only_isolated(tmp_path, monkeypatch):
+    """A fake `grok` that reports its argv, env and prompt file back as JSON."""
+    script = tmp_path / "grok"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "a = sys.argv[1:]\n"
+        "prompt = open(a[a.index('--prompt-file') + 1]).read()\n"
+        "text = json.dumps({'argv': a, 'home': os.environ['HOME'], 'prompt': prompt,"
+        " 'compat': os.environ.get('GROK_CLAUDE_MCPS_ENABLED')})\n"
+        "print(json.dumps({'text': text, 'stopReason': 'end_turn'}))\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(ac, "HOMES_DIR", tmp_path / "homes")
+
+    p = ac.Participant("grok", "grok-4.7", "max")
+    info = json.loads(run(ac.call_participant(p, "hi", str(tmp_path))))
+    argv = info["argv"]
+    assert info["prompt"] == "hi" and info["compat"] == "0"
+    assert info["home"] == str(tmp_path / "homes" / "grok")
+    assert argv[argv.index("--tools") + 1] == ac.GROK_TOOLS
+    assert "WebFetch" in argv and argv[argv.index("--effort") + 1] == "xhigh"  # max clamps to xhigh
+    assert not list((tmp_path / "homes" / "grok").glob("prompt-*"))  # prompt file cleaned up
+
+
+def test_link_repairs_replaced_symlink(tmp_path):
+    target = tmp_path / "auth.json"
+    target.write_text("real")
+    link = tmp_path / "home" / "auth.json"
+    link.parent.mkdir()
+    link.write_text("stale copy")  # a CLI replaced our symlink by rename
+    ac._link(target, link)
+    assert link.is_symlink() and link.read_text() == "real"
