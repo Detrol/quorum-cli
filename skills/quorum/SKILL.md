@@ -17,27 +17,35 @@ user asks for one.
 
 1. **Let the user pick providers, method, models and effort.** Call `quorum_list_models` first;
    offer only providers with status `ok`. Ask with your host's question tool if it has one
-   (`AskUserQuestion` in Claude Code: at most 4 questions per call, 2–4 options each, plus a
-   free-text "Other"), otherwise in chat, and wait for each answer.
-   - **Round 1, providers and method** (two questions in one call).
-     - *Providers*, multi-select, at least two participants in total. Agents first; mark API and
-       local providers "no project or web access". When more than four providers are available,
-       list them in chat and let the user answer with names.
+   (`AskUserQuestion` in Claude Code: at most 4 questions per call and 2–4 options per question),
+   otherwise in chat, and wait for each answer.
+
+   **Every choice must be reachable through the options themselves.** Do not count on a free-text
+   "Other" answer; not every host offers one. When a choice has more than four values, show three
+   and a fourth option "More…" that leads to a follow-up question with the next ones, repeating
+   until all are shown.
+
+   - **Round 1, providers and method** (one call).
+     - *Agents*, multi-select: the agent providers (claude, codex, agy, grok) with status `ok`.
+     - *API and local providers*, multi-select, marked "no project or web access": those with
+       status `ok`, four per question (add another question for more). Leave the question out
+       when none are available.
      - *Method*, single choice: the three methods (from `methods`) that fit the question best,
-       the best one first and marked "(Recommended)", each with its `best_for`. The other methods
-       are reachable under "Other"; name them in the question text. Mind the counts: `oxford`
-       needs an even number of participants, `advocate` and `delphi` three or more.
+       the best one first and marked "(Recommended)", each with its `best_for`, plus
+       "Other methods…", which leads to a follow-up question with the remaining four. Mind the
+       counts: `oxford` needs an even number of participants, `advocate` and `delphi` three or
+       more.
+     At least two participants in total; if the user picked fewer, ask again.
    - **Round 2, model and effort per chosen provider** (two questions per provider, so two
      providers per call; more providers, more calls).
-     - *Model*: options from that provider's catalog entry. Mark the `workhorse` model, or else
-       the first model, "(Recommended)". Each option's description gives the model's description
-       and its effort levels (`efforts`), e.g. "Balanced model · effort: low–max". The user can
-       type any other listed model under "Other". A provider with a single model still gets the
-       question only when it has effort levels; then ask effort alone.
+     - *Model*: that provider's models, the `workhorse` model (or else the first) first and
+       marked "(Recommended)", then "More models…" when it has more than four. Each option's
+       description gives the model's description and its effort levels (`efforts`), e.g.
+       "Balanced model · effort: low–max". Skip the question for a provider with one model.
      - *Effort*, only when the provider has effort levels: "Default (Recommended)" (the
-       provider's own default; send no `@effort`), `low`, `medium`, `high`; `xhigh`, `max` and
-       other listed levels under "Other". A level the chosen model lacks is clamped to the nearest
-       one it has.
+       provider's own default; send no `@effort`), `medium`, `high`, and "More levels…", which
+       leads to a follow-up with the chosen model's remaining levels (`low`, `xhigh`, `max`, …).
+       A level the chosen model lacks is clamped to the nearest one it has.
 
    In chat without a question tool, list each provider's models with their effort levels in one
    message and let the user answer in one line (e.g. "claude opus@high, codex gpt-6-sol,
