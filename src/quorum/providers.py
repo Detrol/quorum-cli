@@ -233,3 +233,38 @@ async def discover_ollama_models(timeout: float = 5.0) -> list[tuple[str, str]]:
     except Exception:
         # Unexpected error - still return empty list but this could be logged
         return []
+
+
+async def api_catalog() -> dict[str, dict]:
+    """API and local providers from the .env config, by the same rules as the TUI.
+
+    A provider is `ok` when its `has_<provider>` check passes and it has models: the
+    `*_MODELS` list, or for Ollama whatever the server reports. These participants have
+    no tools: they see only the question and the files passed with it.
+    """
+    from .clients.agent_cli import API_EFFORTS, API_PROVIDERS
+
+    settings = get_settings()
+    out: dict[str, dict] = {}
+    for provider in API_PROVIDERS:
+        if provider == "ollama":
+            rows = [(mid.split(":", 1)[1], name) for mid, name in await discover_ollama_models()]
+            missing = f"no models at {settings.ollama_base_url} (is Ollama running?)"
+        else:
+            rows = settings.get_models_with_display_names(provider)
+            if not getattr(settings, f"has_{provider}"):
+                rows, missing = [], f"not configured ({provider.upper()}_* in ~/.quorum/.env)"
+            else:
+                missing = f"no models ({provider.upper()}_MODELS in ~/.quorum/.env)"
+        out[provider] = {
+            "kind": "local" if provider in ("ollama", "lmstudio", "llamaswap") else "api",
+            "status": "ok" if rows else "unavailable",
+            "detail": "configured" if rows else missing,
+            "tools": "none",
+            "models": [
+                {"id": f"{provider}:{mid}", "model": mid, "description": name, "role": None,
+                 "efforts": API_EFFORTS.get(provider, []), "default_effort": None}
+                for mid, name in rows
+            ],
+        }
+    return out

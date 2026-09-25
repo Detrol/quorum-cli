@@ -32,6 +32,7 @@ class OpenAIClient:
         api_key: str,
         base_url: str | None = None,
         http_client: "httpx.AsyncClient | None" = None,
+        reasoning_effort: str | None = None,
     ):
         """Initialize the OpenAI-compatible client.
 
@@ -40,8 +41,10 @@ class OpenAIClient:
             api_key: API key for authentication.
             base_url: Optional base URL for non-OpenAI providers.
             http_client: Optional shared httpx client for connection pooling.
+            reasoning_effort: Optional `reasoning_effort` for reasoning models (low/medium/high).
         """
         self.model = model
+        self.reasoning_effort = reasoning_effort
         self._api_key: str | None = api_key
         self._client = AsyncOpenAI(
             api_key=api_key,
@@ -61,9 +64,11 @@ class OpenAIClient:
         Raises:
             openai.APIError: If the API request fails.
         """
+        kwargs = {"reasoning_effort": self.reasoning_effort} if self.reasoning_effort else {}
         response = await self._client.chat.completions.create(
             model=self.model,
             messages=[self._convert_message(m) for m in messages],
+            **kwargs,
         )
 
         # Extract content from response

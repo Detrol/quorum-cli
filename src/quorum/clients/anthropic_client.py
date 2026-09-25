@@ -15,14 +15,17 @@ from .types import AssistantMessage, Message, SystemMessage, UserMessage
 class AnthropicClient:
     """Client for Anthropic's Claude API."""
 
-    def __init__(self, model: str, api_key: str):
+    def __init__(self, model: str, api_key: str, effort: str | None = None):
         """Initialize the Anthropic client.
 
         Args:
             model: Model identifier (e.g., "claude-sonnet-4-20250514").
             api_key: Anthropic API key.
+            effort: Optional effort (low/medium/high/xhigh/max) with adaptive thinking.
+                Models without effort support (e.g. Haiku 4.5) reject it.
         """
         self.model = model
+        self.effort = effort
         self._api_key: str | None = api_key
         self._client = AsyncAnthropic(api_key=api_key)
 
@@ -67,6 +70,12 @@ class AnthropicClient:
         # Only include system if provided
         if system_content:
             kwargs["system"] = system_content
+
+        if self.effort:
+            # Thinking shares max_tokens with the answer, so give it room
+            kwargs["max_tokens"] = 16000
+            kwargs["thinking"] = {"type": "adaptive"}
+            kwargs["output_config"] = {"effort": self.effort}
 
         response = await self._client.messages.create(**kwargs)
 

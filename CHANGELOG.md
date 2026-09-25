@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-25
+
+### Added
+
+- **API and local providers in MCP again** - the models in `~/.quorum/.env` (OpenAI, Anthropic, Google, xAI, OpenRouter, LM Studio, llama-swap, custom, Ollama) take part alongside agent CLIs, as `provider:model@effort`
+- Effort for API models: `reasoning_effort` (OpenAI, Google, xAI) and adaptive thinking with `output_config.effort` (Anthropic); only sent when chosen
+- `quorum_list_models` lists every provider with kind, tools and status, plus `preselected` models per level
+- `quorum_start` takes `providers` (API/local included); `agents` stays as an alias
+- `quorum_discuss` is back as a deprecated, blocking v1.1-compatible tool; bare `*_MODELS` ids work in all tools
+- `QUORUM_METHOD` sets the default method in MCP (documented before, but never read)
+
+### Changed
+
+- The skill lets the user pick providers, then a model per provider, with the level preselecting
+- MCP respects `QUORUM_SYNTHESIZER` instead of always using the first participant
+- MCP always reads `~/.quorum/.env`, never a `.env` in the calling agent's project directory
+- Presets still include only agent CLIs unless providers are chosen, so no API credit is spent unasked
+
+### Fixed
+
+- v1.2.0 removed API and Ollama models from the MCP server that v1.1.x documented; restored
+
 ## [1.4.0] - 2026-09-25
 
 ### Added

@@ -45,12 +45,18 @@ quorum
 
 ---
 
-## Claude Code & Codex plugin: agent debates (MCP)
+## Claude Code & Codex plugin (MCP)
 
-Ask your coding agent for a Quorum and it runs a structured debate between the agent CLIs
-you have installed: **claude**, **codex**, **agy** (Antigravity) and **grok**. Each one runs on your
-own subscription. No API keys are needed. Participants can read your project (read-only),
-search the web, and run isolated from your hooks, plugins and instruction files.
+Ask your coding agent for a Quorum and it runs a structured debate between the models you choose:
+
+- **Agent CLIs** you have installed: **claude**, **codex**, **agy** (Antigravity) and **grok**. Each runs
+  on your own subscription and needs no API key. They can read your project (read-only) and use the
+  web, isolated from your hooks, plugins and instruction files.
+- **API and local models** from your `~/.quorum/.env` (see [Configuration](#configuration)): OpenAI,
+  Anthropic, Google, xAI, OpenRouter, LM Studio, llama-swap, custom endpoints and Ollama. They see the
+  question and any files passed with it, but have no tool access.
+
+Agents and API models can take part in the same discussion.
 
 ```bash
 # Claude Code
@@ -63,16 +69,28 @@ codex plugin add quorum@quorum
 ```
 
 The plugin starts the server with `uvx --from quorum-cli quorum-mcp-server`, so [uv](https://github.com/astral-sh/uv)
-must be on PATH. Then ask, for example:
+must be on PATH. Without the plugin, after `pip install quorum-cli`, you can still register the server
+yourself: `claude mcp add quorum --scope user -- quorum-mcp-server`.
+
+Then ask, for example:
 > "Run a Quorum on whether we should split this service"
 
-The agent asks which level and which agents to use before it starts, unless you already said.
+Before it starts, the agent asks which providers and models to use. The level (quick, balanced
+or deep) preselects a model and effort for each provider.
 
 **MCP tools:**
-- `quorum_list_models` - Agents, login status, current models with roles and effort levels, presets
-- `quorum_start` - Start a run: preset (`quick`/`balanced`/`deep`) limited to chosen `agents`, or explicit `agent:model@effort` participants, any of the 7 methods
+- `quorum_list_models` - Providers with status, models, roles and effort levels, presets and preselected models
+- `quorum_start` - Start a run with `provider:model@effort` participants (e.g. `claude:opus@high`, `openai:gpt-5.5@medium`, `ollama:qwen3:8b`) or a preset, any of the 7 methods
 - `quorum_wait` - Poll a run in slices until the synthesis is ready (safe under client tool timeouts)
-- `quorum_check` - Real ping to every agent
+- `quorum_check` - Real ping to every agent CLI
+- `quorum_discuss` - Deprecated v1.1 interface (blocking; bare model ids from `*_MODELS` still work)
+
+**Configuration:** the server always reads `~/.quorum/.env`, never a `.env` in the project you are
+working in. `*_MODELS` lists and Ollama auto-discovery work as in the TUI, and so do `QUORUM_METHOD`,
+`QUORUM_SYNTHESIZER`, `QUORUM_ROUNDS_PER_AGENT` and `QUORUM_EXECUTION_MODE`. Responses match the
+question's language. Effort maps to `reasoning_effort` (OpenAI, Google, xAI) and to adaptive thinking
+with effort (Anthropic). It is only sent when you choose one, because models without reasoning
+support reject it.
 
 **Defaults:** at most 4 participants, 10 min per turn, 30 min per run, one run per project at a time.
 Transcripts are saved to `~/.quorum/runs/`.

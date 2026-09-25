@@ -186,7 +186,11 @@ def _get_active_env_file() -> Path:
 
     If ./.env exists in current directory, use it exclusively.
     Otherwise fall back to ~/.quorum/.env for global config.
+    The MCP server sets QUORUM_GLOBAL_CONFIG: its cwd is whatever project the calling agent
+    is in, whose own .env is not Quorum's.
     """
+    if os.environ.get("QUORUM_GLOBAL_CONFIG"):
+        return CACHE_DIR / ".env"
     local_env = Path(".env")
     if local_env.exists():
         return local_env
@@ -298,6 +302,9 @@ class Settings(BaseSettings):
     # - random: Randomly select a model each time
     # - rotate: Rotate through models across discussions
     synthesizer_mode: str = Field(default="first", alias="QUORUM_SYNTHESIZER")
+
+    # Default discussion method (README: QUORUM_METHOD); used by the MCP server
+    default_method: str = Field(default="standard", alias="QUORUM_METHOD")
 
     # Rounds per agent in Standard Phase 3 discussion (default: 2)
     # Total discussion messages = rounds_per_agent * number_of_models

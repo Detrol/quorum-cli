@@ -32,7 +32,9 @@ def test_parse_participant():
     assert (p.agent, p.model, p.effort, p.id) == ("claude", "opus", "high", "claude:opus@high")
     assert ac.parse_participant("codex:gpt-6-sol", "low").effort == "low"
     assert ac.parse_participant("agy:gemini-3.1-pro-high").effort is None
-    for bad in ("gpt-4o", "openai:gpt-4o", "claude:", "claude:opus@huge", "codex:-rf"):
+    assert ac.parse_participant("openai:gpt-4o@high").agent == "openai"
+    assert ac.parse_participant("ollama:qwen3:8b").model == "qwen3:8b"
+    for bad in ("gpt-4o", "mistral:x", "claude:", "claude:opus@huge", "codex:-rf"):
         with pytest.raises(ValueError):
             ac.parse_participant(bad)
     assert ac.is_agent_model("codex:x") and not ac.is_agent_model("ollama:llama3")
@@ -106,10 +108,17 @@ def test_resolve_preset_orders_agents_and_skips_unavailable():
     assert ac.resolve_preset("quick", catalog) == ["claude:fable@low", "agy:gemini-pro-high@low"]
     with pytest.raises(ValueError):
         ac.resolve_preset("huge", catalog)
-    assert ac.resolve_preset("deep", catalog, agents=["agy"]) == ["agy:gemini-pro-high@high"]
-    assert ac.resolve_preset("deep", catalog, agents=["codex"]) == []  # chosen but unavailable
-    with pytest.raises(ValueError, match="Unknown agents"):
-        ac.resolve_preset("deep", catalog, agents=["gemini"])
+    assert ac.resolve_preset("deep", catalog, providers=["agy"]) == ["agy:gemini-pro-high@high"]
+    assert ac.resolve_preset("deep", catalog, providers=["codex"]) == []  # chosen but unavailable
+    with pytest.raises(ValueError, match="Unknown providers"):
+        ac.resolve_preset("deep", catalog, providers=["gemini"])
+
+    # API/local providers join only when chosen; no effort where the provider has none
+    catalog["openai"] = entry("gpt-5.5", None, ["low", "medium", "high"])
+    catalog["ollama"] = entry("qwen3:8b", None, [])
+    assert "openai:gpt-5.5@high" not in ac.resolve_preset("deep", catalog)
+    assert ac.resolve_preset("deep", catalog, providers=["openai", "ollama"]) == [
+        "openai:gpt-5.5@high", "ollama:qwen3:8b"]
 
 
 def test_render_prompt_has_preamble_role_and_task():

@@ -28,12 +28,23 @@ from ..config import CACHE_DIR
 from .types import Message, SystemMessage, UserMessage
 
 AGENTS = ("claude", "codex", "agy", "grok")
+# API and local providers from ~/.quorum/.env (see README); participants too, but without tools.
+API_PROVIDERS = ("openai", "anthropic", "google", "xai", "openrouter", "lmstudio", "llamaswap", "custom", "ollama")
+PROVIDERS = AGENTS + API_PROVIDERS
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 AGENT_EFFORTS = {
     "claude": list(EFFORTS),
     "codex": ["low", "medium", "high", "xhigh"],  # fallback when the catalog is missing
     "agy": [],  # agy has no effort flag; effort picks the -low/-medium/-high model variant
     "grok": ["low", "medium", "high", "xhigh"],
+}
+# Effort per API provider; the rest (OpenAI-compatible, Ollama) take none. Sent only when asked for,
+# since a model without reasoning support rejects it.
+API_EFFORTS = {
+    "openai": ["low", "medium", "high"],
+    "anthropic": list(EFFORTS),
+    "google": ["low", "medium", "high"],
+    "xai": ["low", "high"],
 }
 PRESETS = {"quick": ("fast", "low"), "balanced": ("workhorse", "medium"), "deep": ("flagship", "high")}
 
@@ -78,7 +89,7 @@ GROK_COMPAT_OFF = {
     for h in ("CLAUDE", "CODEX", "CURSOR")
     for k in ("AGENTS", "HOOKS", "MCPS", "RULES", "SKILLS", "SESSIONS")
 }
-_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-\[\]]*$")
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\-\[\]]*$")
 
 
 @dataclass(frozen=True)
@@ -100,9 +111,10 @@ def is_agent_model(model_id: str) -> bool:
 def parse_participant(pid: str, default_effort: str | None = None) -> Participant:
     agent, sep, rest = pid.partition(":")
     model, _, effort = rest.partition("@")
-    if not sep or agent not in AGENTS or not _MODEL_RE.match(model):
+    if not sep or agent not in PROVIDERS or not _MODEL_RE.match(model):
         raise ValueError(
-            f"Invalid participant '{pid}': use agent:model[@effort] with agent one of {', '.join(AGENTS)}"
+            f"Invalid participant '{pid}': use provider:model[@effort] with provider one of "
+            f"{', '.join(PROVIDERS)}"
         )
     effort = effort or default_effort
     if effort and effort not in EFFORTS:
@@ -120,6 +132,8 @@ def clamp_effort(effort: str | None, supported: list[str]) -> str | None:
 
 
 def supported_efforts(p: Participant, catalog: dict | None = None) -> list[str]:
+    if p.agent in API_PROVIDERS:
+        return API_EFFORTS.get(p.agent, [])
     for m in ((catalog or {}).get(p.agent) or {}).get("models", []):
         if m["model"] == p.model and m.get("efforts"):
             return m["efforts"]
@@ -513,26 +527,30 @@ async def discover(refresh: bool = False) -> dict[str, dict]:
     return agents
 
 
-def resolve_preset(name: str, catalog: dict[str, dict], agents: list[str] | None = None) -> list[str]:
-    """One Participant per available Agent (optionally only `agents`), by role; claude first
-    so it writes the Synthesis."""
+def resolve_preset(name: str, catalog: dict[str, dict], providers: list[str] | None = None) -> list[str]:
+    """One Participant per available provider, by role; claude first so it writes the Synthesis.
+
+    Without `providers` only the Agents take part, so a preset never spends API credit
+    unasked. API and local providers have no roles and get their first configured model.
+    """
     if name not in PRESETS:
         raise ValueError(f"Unknown preset '{name}': use one of {', '.join(PRESETS)}")
-    unknown = set(agents or ()) - set(AGENTS)
+    unknown = set(providers or ()) - set(PROVIDERS)
     if unknown:
-        raise ValueError(f"Unknown agents {sorted(unknown)}: use any of {', '.join(AGENTS)}")
+        raise ValueError(f"Unknown providers {sorted(unknown)}: use any of {', '.join(PROVIDERS)}")
     role, effort = PRESETS[name]
     out = []
-    for agent in AGENTS:
-        if agents and agent not in agents:
+    for provider in (PROVIDERS if providers else AGENTS):
+        if providers and provider not in providers:
             continue
-        entry = catalog.get(agent) or {}
+        entry = catalog.get(provider) or {}
         if entry.get("status") != "ok" or not entry["models"]:
             continue
-        # Agents without role tiers (grok lists a single default model) fall back to their first model.
+        # No role tiers (grok, API providers): workhorse, else the first model.
         m = next((m for m in entry["models"] if m["role"] == role), None) or next(
             (m for m in entry["models"] if m["role"] == "workhorse"), entry["models"][0])
-        out.append(f"{agent}:{m['model']}@{clamp_effort(effort, m['efforts'])}")
+        e = clamp_effort(effort, m["efforts"]) if m["efforts"] else None
+        out.append(f"{provider}:{m['model']}" + (f"@{e}" if e else ""))
     return out
 
 

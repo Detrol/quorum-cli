@@ -13,7 +13,14 @@ import re
 from collections import OrderedDict
 
 from .clients import AnthropicClient, ChatClient, OpenAIClient, UserMessage
-from .clients.agent_cli import AgentCLIClient, is_agent_model
+from .clients.agent_cli import (
+    API_EFFORTS,
+    API_PROVIDERS,
+    AgentCLIClient,
+    clamp_effort,
+    is_agent_model,
+    parse_participant,
+)
 from .config import get_settings
 from .constants import (
     HTTP_CONNECT_TIMEOUT,
@@ -221,7 +228,22 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
         return AgentCLIClient(model_id)
 
     settings = get_settings()
-    provider = get_provider_for_model(model_id)
+    effort = None
+    prefix = model_id.partition(":")[0]
+    if prefix in API_PROVIDERS and prefix != "ollama":
+        # MCP ids are `provider:model@effort`; the model must still be listed in *_MODELS.
+        p = parse_participant(model_id)
+        if p.model not in settings.get_models(p.agent):
+            raise ValueError(
+                f"Model '{p.model}' is not configured for {p.agent}. "
+                f"Add it to {p.agent.upper()}_MODELS in ~/.quorum/.env."
+            )
+        provider, model_id = p.agent, p.model
+        effort = clamp_effort(p.effort, API_EFFORTS.get(provider, [])) if API_EFFORTS.get(provider) else None
+    else:
+        # Bare ids from *_MODELS (TUI) and `ollama:name`; Ollama takes no effort suffix.
+        model_id = model_id.split("@", 1)[0] if prefix == "ollama" else model_id
+        provider = get_provider_for_model(model_id)
 
     if provider is None:
         # Generate helpful error message listing configured providers
@@ -244,6 +266,7 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
             model=model_id,
             api_key=settings.openai_api_key,
             http_client=_get_http_client(),
+            reasoning_effort=effort,
         )
 
     elif provider == "anthropic":
@@ -254,6 +277,7 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
         return AnthropicClient(
             model=model_id,
             api_key=settings.anthropic_api_key,
+            effort=effort,
         )
 
     elif provider == "google":
@@ -265,6 +289,7 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
             api_key=settings.google_api_key,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             http_client=_get_http_client(),
+            reasoning_effort=effort,
         )
 
     elif provider == "xai":
@@ -276,6 +301,7 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
             api_key=settings.xai_api_key,
             base_url="https://api.x.ai/v1",
             http_client=_get_http_client(),
+            reasoning_effort=effort,
         )
 
     elif provider == "ollama":

@@ -20,6 +20,17 @@ Terms: see `CONTEXT.md`.
 | Limits | ≤4 Participants, 10 min per turn, 30 min per Run, one active Run per project directory. Overridable per call. |
 | Packaging | One repo, `.claude-plugin/` + `.codex-plugin/` sharing `skills/` and `.mcp.json`; server launched via `uvx --from quorum-cli quorum-mcp-server`. |
 
+## API and local providers (1.5.0)
+
+Public users configure providers in `~/.quorum/.env` as the README documents, so MCP honours exactly
+that: `*_MODELS` lists, Ollama auto-discovery, `QUORUM_METHOD` / `QUORUM_SYNTHESIZER` /
+`QUORUM_ROUNDS_PER_AGENT` / `QUORUM_EXECUTION_MODE`. The server forces `~/.quorum/.env`
+(`QUORUM_GLOBAL_CONFIG`), because its cwd is the calling agent's project. Participants are
+`provider:model@effort`; bare ids resolve through `*_MODELS` like the TUI. API/local participants
+have no tools. Presets include only Agents unless providers are chosen. `quorum_discuss` (v1.1) is
+kept as a deprecated blocking wrapper. API effort was verified only against mocked SDK calls; no
+API keys were available.
+
 ## Verified CLI invocations (2026-09-24)
 
 - **claude 2.1**: `claude -p --model <alias|id> --effort <e> --setting-sources "" --strict-mcp-config

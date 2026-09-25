@@ -1,6 +1,8 @@
-"""MCP server for Quorum: discussions between agent CLIs (claude, codex, agy, grok).
+"""MCP server for Quorum: discussions between agent CLIs (claude, codex, agy, grok) and the
+API/local providers configured in ~/.quorum/.env.
 
-Tools: quorum_list_models, quorum_start, quorum_wait, quorum_check.
+Tools: quorum_list_models, quorum_start, quorum_wait, quorum_check, and the deprecated
+blocking quorum_discuss (v1.1 interface).
 A Run executes inside this server process; the caller waits on it in slices so long
 discussions survive MCP client tool timeouts. Terms: see CONTEXT.md.
 """
@@ -25,17 +27,21 @@ from quorum.clients.agent_cli import (
     AGENTS,
     EFFORTS,
     PRESETS,
+    PROVIDERS,
     RUN_CWD,
     RUN_FAILED,
+    Participant,
     base_model,
     discover,
     parse_participant,
     ping,
     resolve_preset,
+    supported_efforts,
 )
-from quorum.config import CACHE_DIR
+from quorum.config import CACHE_DIR, get_settings
 from quorum.constants import __version__
 from quorum.methods.base import TURN_TIMEOUT
+from quorum.providers import api_catalog, get_provider_for_model
 
 # Limits for file reading
 MAX_FILES = 10
@@ -212,7 +218,7 @@ async def _execute(run: Run, question: str, turn_seconds: float, total_seconds: 
         team = FourPhaseConsensusTeam(
             model_ids=run.participants,
             method_override=run.method,
-            synthesizer_override="first",
+            synthesizer_override=None,  # QUORUM_SYNTHESIZER, default "first"
             use_language_settings=False,
         )
         async for msg in team.run_stream(question):
@@ -274,11 +280,25 @@ def _status(run: Run, full: bool) -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────
 
 
+AGENT_TOOLS = {"claude": "read+web", "codex": "read+web", "agy": "read+web", "grok": "read+web-fetch"}
+
+
+async def _catalog(refresh: bool = False) -> dict[str, dict]:
+    """Agents (CLIs on the user's subscriptions) plus configured API and local providers."""
+    agents = await discover(refresh=refresh)
+    merged = {a: {"kind": "agent", "tools": AGENT_TOOLS[a], **entry} for a, entry in agents.items()}
+    return merged | await api_catalog()
+
+
 async def _list_models(args: dict[str, Any]) -> dict[str, Any]:
-    catalog = await discover(refresh=bool(args.get("refresh")))
+    catalog = await _catalog(refresh=bool(args.get("refresh")))
     return {
-        "agents": catalog,
+        "providers": catalog,
         "presets": {name: resolve_preset(name, catalog) for name in PRESETS},
+        "preselected": {
+            name: resolve_preset(name, catalog, [p for p, e in catalog.items() if e["status"] == "ok"])
+            for name in PRESETS
+        },
         "efforts": list(EFFORTS),
         "methods": METHOD_INFO,
         "limits": {
@@ -287,6 +307,33 @@ async def _list_models(args: dict[str, Any]) -> dict[str, Any]:
             "total_timeout_minutes": DEFAULT_TOTAL_MINUTES,
         },
     }
+
+
+def _canonical(pid: str) -> str:
+    """Bare ids from *_MODELS (as the TUI and quorum_discuss use them) become provider:model."""
+    if pid.partition(":")[0] in PROVIDERS:
+        return pid
+    model, _, effort = pid.partition("@")
+    provider = get_provider_for_model(model)
+    if provider is None:
+        raise ValueError(f"Unknown model '{pid}': use provider:model[@effort] or a model from *_MODELS.")
+    return f"{provider}:{pid}"
+
+
+async def _validate_participants(ids: list[str], effort: str | None, catalog: dict) -> list[str]:
+    participants = [parse_participant(_canonical(pid), effort) for pid in ids]
+    out = []
+    for p in participants:
+        entry = catalog.get(p.agent) or {}
+        if entry.get("status") != "ok":
+            raise ValueError(f"{p.agent} is unavailable: {entry.get('detail', 'unknown')}")
+        known = {m["model"] for m in entry["models"]}
+        if p.agent != "claude" and base_model(p) not in known:  # claude also accepts full model ids
+            raise ValueError(f"Unknown {p.agent} model '{p.model}'. Known: {', '.join(sorted(known))}")
+        # Providers without an effort setting (Ollama, OpenAI-compatible) drop it
+        keep = p.effort if p.agent in AGENTS or supported_efforts(p) else None
+        out.append(Participant(p.agent, p.model, keep).id)
+    return list(dict.fromkeys(out))
 
 
 async def _start(args: dict[str, Any]) -> dict[str, Any]:
@@ -300,24 +347,15 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
     if busy:
         raise ValueError(f"A run is already active for {cwd}: {busy[0]}. Wait for it first.")
 
-    method = args.get("method", "standard")
-    effort = args.get("effort")
-    catalog = await discover()
+    default_method = get_settings().default_method
+    method = args.get("method") or (default_method if default_method in METHOD_INFO else "standard")
+    catalog = await _catalog()
     ids = args.get("participants") or resolve_preset(
-        args.get("preset", "balanced"), catalog, args.get("agents")
+        args.get("preset", "balanced"), catalog, args.get("providers") or args.get("agents")
     )
-    participants = [parse_participant(pid, effort) for pid in ids]
-
-    for p in participants:
-        entry = catalog.get(p.agent) or {}
-        if entry.get("status") != "ok":
-            raise ValueError(f"{p.agent} is unavailable: {entry.get('detail', 'unknown')}")
-        known = {m["model"] for m in entry["models"]}
-        if p.agent != "claude" and base_model(p) not in known:  # claude also accepts full model ids
-            raise ValueError(f"Unknown {p.agent} model '{p.model}'. Known: {', '.join(sorted(known))}")
+    pids = await _validate_participants(ids, args.get("effort"), catalog)
 
     max_participants = int(args.get("max_participants", DEFAULT_MAX_PARTICIPANTS))
-    pids = list(dict.fromkeys(p.id for p in participants))
     if not 2 <= len(pids) <= max_participants:
         raise ValueError(f"Need 2 to {max_participants} distinct participants, got {len(pids)}: {pids}")
     if len(pids) < METHOD_MIN.get(method, 2):
@@ -359,11 +397,27 @@ async def _check(args: dict[str, Any]) -> dict[str, Any]:
     return dict(zip(agents, results))
 
 
+async def _discuss(args: dict[str, Any]) -> Any:
+    """v1.1.x `quorum_discuss`: blocking, same arguments and output shape. Deprecated."""
+    started = await _start({"question": args["question"], "participants": args["models"],
+                            "method": args.get("method"), "files": args.get("files")})
+    run = RUNS[started["run_id"]]
+    await run.task
+    if run.status != "done":
+        raise ValueError(run.error or "discussion failed")
+    if args.get("full_output"):
+        return run.messages
+    result = run.result or {}
+    return {k: result.get(k) for k in ("consensus", "synthesis", "differences", "method")} | {
+        "models": args["models"]}
+
+
 HANDLERS = {
     "quorum_list_models": _list_models,
     "quorum_start": _start,
     "quorum_wait": _wait,
     "quorum_check": _check,
+    "quorum_discuss": _discuss,
 }
 
 
@@ -394,7 +448,8 @@ async def read_resource(uri: Any) -> str:
 
 
 PARTICIPANT_HELP = (
-    "Participant ids are 'agent:model@effort', e.g. 'claude:opus@high', 'codex:gpt-6-sol@medium', "
+    "Participant ids are 'provider:model@effort', e.g. 'claude:opus@high', 'codex:gpt-6-sol@medium', "
+    "'openai:gpt-5.5@high', 'ollama:qwen3:8b', "
     "'agy:gemini-3.1-pro@high', 'grok:grok-4.7@medium'. The first participant writes the synthesis, so put the strongest first."
 )
 
@@ -405,10 +460,13 @@ async def list_tools() -> list[types.Tool]:
         types.Tool(
             name="quorum_list_models",
             description=(
-                "List the agent CLIs (claude, codex, agy, grok) available as Quorum participants: login status, "
-                "current models with descriptions and roles (flagship/workhorse/fast), supported effort "
-                "levels, resolved presets, discussion methods and limits. Call this before quorum_start "
-                "unless you use a preset. Cached for an hour; pass refresh=true to rediscover."
+                "List the providers available as Quorum participants: agent CLIs (claude, codex, agy, "
+                "grok; read the project and the web) and the API/local providers configured in "
+                "~/.quorum/.env (openai, anthropic, google, xai, openrouter, lmstudio, llamaswap, custom, "
+                "ollama; no tools, they see only the question and files). Gives status, models with "
+                "descriptions and roles, effort levels, presets (agents only), preselected models per "
+                "level for every available provider, methods and limits. Agent data is cached for an "
+                "hour; pass refresh=true to rediscover."
             ),
             inputSchema={
                 "type": "object",
@@ -419,7 +477,7 @@ async def list_tools() -> list[types.Tool]:
             name="quorum_start",
             description=(
                 "Start a Quorum discussion between agent CLIs. Only use when the user asks for one. "
-                "Before calling, ask the user which level (quick/balanced/deep) and which agents to use, "
+                "Before calling, let the user pick providers and models (level preselects them), "
                 "unless they already said. "
                 "Participants can read the project (read-only) and search the web. Returns a run_id "
                 "immediately; then call quorum_wait until the status is 'done' or 'failed', and present "
@@ -443,10 +501,18 @@ async def list_tools() -> list[types.Tool]:
                             "quick = fast models/low effort, balanced = workhorse/medium, deep = flagship/high."
                         ),
                     },
+                    "providers": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": list(PROVIDERS)},
+                        "description": (
+                            "With a preset: only these providers take part, API/local ones included. "
+                            "Default: all available agents (never API providers unasked)."
+                        ),
+                    },
                     "agents": {
                         "type": "array",
                         "items": {"type": "string", "enum": list(AGENTS)},
-                        "description": "With a preset: only these agents take part. Default: all available.",
+                        "description": "Deprecated alias of providers (agents only).",
                     },
                     "effort": {
                         "type": "string",
@@ -456,8 +522,10 @@ async def list_tools() -> list[types.Tool]:
                     "method": {
                         "type": "string",
                         "enum": list(METHOD_INFO),
-                        "default": "standard",
-                        "description": "Discussion method; see quorum_list_models for what each is best for.",
+                        "description": (
+                            "Discussion method; see quorum_list_models. Default: QUORUM_METHOD, "
+                            "else standard."
+                        ),
                     },
                     "cwd": {
                         "type": "string",
@@ -491,6 +559,28 @@ async def list_tools() -> list[types.Tool]:
                     "full": {"type": "boolean", "default": False},
                 },
                 "required": ["run_id"],
+            },
+        ),
+        types.Tool(
+            name="quorum_discuss",
+            description=(
+                "Deprecated (v1.1 interface): run a discussion and block until it ends. Prefer "
+                "quorum_start + quorum_wait, which survive client tool timeouts. Model ids may be bare "
+                "ids from *_MODELS in ~/.quorum/.env (e.g. 'gpt-4o') or provider:model@effort."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "The question or topic to discuss"},
+                    "models": {"type": "array", "items": {"type": "string"},
+                               "description": "Model ids to participate (minimum 2)"},
+                    "method": {"type": "string", "enum": list(METHOD_INFO)},
+                    "full_output": {"type": "boolean", "default": False,
+                                    "description": "Return the full transcript instead of the synthesis"},
+                    "files": {"type": "array", "items": {"type": "string"},
+                              "description": "Absolute file paths to include as context"},
+                },
+                "required": ["question", "models"],
             },
         ),
         types.Tool(
@@ -536,4 +626,6 @@ async def _run_server() -> None:
 
 def main() -> None:
     """Run the Quorum MCP server."""
+    # Read ~/.quorum/.env, never the .env of whatever project the calling agent is in
+    os.environ.setdefault("QUORUM_GLOBAL_CONFIG", "1")
     asyncio.run(_run_server())
