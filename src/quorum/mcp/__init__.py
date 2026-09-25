@@ -53,6 +53,7 @@ DEFAULT_TOTAL_MINUTES = 30
 WAIT_DEFAULT_SECONDS = 45  # stays under Codex's default MCP tool timeout
 WAIT_MAX_SECONDS = 600
 RUNS_DIR = CACHE_DIR / "runs"
+LINEUP_FILE = CACHE_DIR / "last_lineup.json"
 METHOD_MIN = {"advocate": 3, "delphi": 3}
 
 # Method descriptions for the resource
@@ -329,6 +330,79 @@ async def _validate_participants(ids: list[str], effort: str | None, catalog: di
     return list(dict.fromkeys(out))
 
 
+def _count_problem(n: int, method: str) -> str | None:
+    if n < max(2, METHOD_MIN.get(method, 2)):
+        return f"Method '{method}' needs at least {max(2, METHOD_MIN.get(method, 2))} participants."
+    if method == "oxford" and n % 2:
+        return "Method 'oxford' needs an even number of participants."
+    return None
+
+
+def _load_lineup() -> dict[str, Any]:
+    try:
+        return json.loads(LINEUP_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _lineup_schema(catalog: dict[str, dict], method: str) -> dict[str, Any]:
+    """One dropdown per available provider (Off, or model with an effort) plus the method.
+
+    Defaults come from the last lineup, so running the same set again is a single confirm.
+    """
+    last = _load_lineup().get("participants", [])
+    props: dict[str, Any] = {}
+    for provider, entry in catalog.items():
+        if entry.get("status") != "ok":
+            continue
+        values, names = ["off"], ["Off"]
+        for m in entry["models"]:
+            values.append(m["model"])
+            names.append(f"{m['model']} · default effort" if m["efforts"] else m["model"])
+            for e in m["efforts"]:
+                values.append(f"{m['model']}@{e}")
+                names.append(f"{m['model']} · {e}")
+        before = next((pid.split(":", 1)[1] for pid in last if pid.startswith(f"{provider}:")), "off")
+        access = "reads the project and the web" if entry.get("kind") == "agent" else "no project or web access"
+        props[provider] = {"type": "string", "title": f"{provider} ({access})", "enum": values,
+                           "enumNames": names, "default": before if before in values else "off"}
+    props["method"] = {
+        "type": "string", "title": "Method", "enum": list(METHOD_INFO),
+        "enumNames": [f"{v['name']}: {v['best_for']}" for v in METHOD_INFO.values()],
+        "default": _load_lineup().get("method") or method,
+    }
+    return {"type": "object", "properties": props, "required": ["method"]}
+
+
+async def _ask_lineup(catalog: dict[str, dict], method: str) -> tuple[list[str] | None, str]:
+    """Let the user pick participants and method in one client-side form (MCP elicitation)."""
+    ctx = server.request_context
+    params = ctx.session.client_params
+    if params is None or params.capabilities.elicitation is None:
+        raise ValueError(
+            "This client cannot show a form. Ask the user in chat which providers, models "
+            "(model@effort) and method to use (see quorum_list_models), then pass participants."
+        )
+    schema = _lineup_schema(catalog, method)
+    providers = [p for p in schema["properties"] if p != "method"]
+    message = "Choose who takes part in the Quorum (at least two) and the discussion method."
+    for _ in range(3):
+        result = await ctx.session.elicit(message, schema, related_request_id=ctx.request_id)
+        if result.action != "accept":
+            return None, method
+        answer = result.content or {}
+        picked = [f"{p}:{answer[p]}" for p in providers if answer.get(p, "off") != "off"]
+        chosen_method = answer.get("method") or method
+        problem = _count_problem(len(picked), chosen_method)
+        if problem is None:
+            return picked, chosen_method
+        message = f"{problem} Choose again."
+        for p in providers:  # keep what the user just picked
+            schema["properties"][p]["default"] = answer.get(p, "off")
+        schema["properties"]["method"]["default"] = chosen_method
+    raise ValueError("No valid lineup chosen.")
+
+
 async def _start(args: dict[str, Any]) -> dict[str, Any]:
     if os.environ.get("QUORUM_PARTICIPANT"):
         raise ValueError("Nested Quorum runs are not allowed from inside a participant.")
@@ -343,15 +417,19 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
     default_method = get_settings().default_method
     method = args.get("method") or (default_method if default_method in METHOD_INFO else "standard")
     catalog = await _catalog()
-    pids = await _validate_participants(args["participants"], args.get("effort"), catalog)
+    ids = args.get("participants")
+    if not ids:
+        ids, method = await _ask_lineup(catalog, method)
+        if ids is None:
+            return {"status": "cancelled", "detail": "The user closed the form; nothing was started."}
+    pids = await _validate_participants(ids, args.get("effort"), catalog)
 
     max_participants = int(args.get("max_participants", DEFAULT_MAX_PARTICIPANTS))
-    if not 2 <= len(pids) <= max_participants:
-        raise ValueError(f"Need 2 to {max_participants} distinct participants, got {len(pids)}: {pids}")
-    if len(pids) < METHOD_MIN.get(method, 2):
-        raise ValueError(f"Method '{method}' needs at least {METHOD_MIN[method]} participants.")
-    if method == "oxford" and len(pids) % 2:
-        raise ValueError("Method 'oxford' needs an even number of participants.")
+    if len(pids) > max_participants:
+        raise ValueError(f"At most {max_participants} participants, got {len(pids)}: {pids}")
+    problem = _count_problem(len(pids), method)
+    if problem:
+        raise ValueError(problem)
 
     question = args["question"]
     file_paths = args.get("files") or []
@@ -361,6 +439,8 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
     if file_context:
         question = f"Context files:\n\n{file_context}\n\n---\n\nQuestion: {question}"
 
+    LINEUP_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LINEUP_FILE.write_text(json.dumps({"participants": pids, "method": method}))
     run = Run(id=uuid.uuid4().hex[:12], cwd=cwd, method=method, participants=pids)
     RUNS[run.id] = run
     turn = float(args.get("turn_timeout_minutes", DEFAULT_TURN_MINUTES)) * 60
@@ -465,13 +545,13 @@ async def list_tools() -> list[types.Tool]:
         types.Tool(
             name="quorum_start",
             description=(
-                "Start a Quorum discussion between agent CLIs. Only use when the user asks for one. "
-                "Before calling, let the user pick providers, the method, and a model and effort "
-                "per provider, "
-                "unless they already said. "
-                "Participants can read the project (read-only) and search the web. Returns a run_id "
-                "immediately; then call quorum_wait until the status is 'done' or 'failed', and present "
-                "the synthesis to the user. " + PARTICIPANT_HELP
+                "Start a Quorum discussion. Only use when the user asks for one. Omit participants "
+                "and the user picks providers, models, effort and method in a form (preset to their "
+                "last lineup); pass participants only when the user already named them. Agent "
+                "participants read the project and the web; API/local ones see only the question and "
+                "files. Returns a run_id immediately (or status 'cancelled' if the user closed the "
+                "form); then call quorum_wait until the status is 'done' or 'failed', and present the "
+                "synthesis to the user. " + PARTICIPANT_HELP
             ),
             inputSchema={
                 "type": "object",
@@ -480,7 +560,10 @@ async def list_tools() -> list[types.Tool]:
                     "participants": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Participants the user picked, strongest first. " + PARTICIPANT_HELP,
+                        "description": (
+                            "Only when the user already named them, strongest first. Omit to let the "
+                            "user pick participants and method in a form. " + PARTICIPANT_HELP
+                        ),
                     },
                     "effort": {
                         "type": "string",
@@ -511,7 +594,7 @@ async def list_tools() -> list[types.Tool]:
                     "turn_timeout_minutes": {"type": "number", "default": DEFAULT_TURN_MINUTES},
                     "total_timeout_minutes": {"type": "number", "default": DEFAULT_TOTAL_MINUTES},
                 },
-                "required": ["question", "participants"],
+                "required": ["question"],
             },
         ),
         types.Tool(

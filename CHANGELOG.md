@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The skill lets the user pick providers and the method, then a model and effort per provider (models list their effort levels); it no longer asks about a level
+- **Lineup form**: `quorum_start` without participants shows the user a form (MCP elicitation) with one dropdown per available provider (off, or model with effort) and the method, preset to the last lineup (`~/.quorum/last_lineup.json`). Clients without form support fall back to chat. The Codex plugin raises the MCP tool timeout to 900 s so the open form is not cut off
 - MCP respects `QUORUM_SYNTHESIZER` instead of always using the first participant
 - MCP always reads `~/.quorum/.env`, never a `.env` in the calling agent's project directory
 - **Presets removed** (`quick`/`balanced`/`deep`, and `preset`/`agents` on `quorum_start`): participants are always the models the user picked. Effort is sent only when given as `@effort`

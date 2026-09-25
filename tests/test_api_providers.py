@@ -133,3 +133,37 @@ def test_global_config_ignores_cwd_env(tmp_path, monkeypatch):
     assert config._get_active_env_file() == Path(".env")
     monkeypatch.setenv("QUORUM_GLOBAL_CONFIG", "1")
     assert config._get_active_env_file() == config.CACHE_DIR / ".env"
+
+
+def test_lineup_form_lists_models_with_efforts_and_remembers_last(tmp_path, monkeypatch):
+    import json as _json
+
+    import quorum.mcp as m
+
+    monkeypatch.setattr(m, "LINEUP_FILE", tmp_path / "last_lineup.json")
+    catalog = {
+        "claude": {"status": "ok", "kind": "agent", "models": [{"model": "opus", "efforts": ["low", "high"]}]},
+        "codex": {"status": "unavailable", "kind": "agent", "models": []},
+        "ollama": {"status": "ok", "kind": "local", "models": [{"model": "qwen3:8b", "efforts": []}]},
+    }
+    schema = m._lineup_schema(catalog, "standard")
+    assert list(schema["properties"]) == ["claude", "ollama", "method"]
+    claude = schema["properties"]["claude"]
+    assert claude["enum"] == ["off", "opus", "opus@low", "opus@high"] and claude["default"] == "off"
+    assert claude["enumNames"][1] == "opus · default effort"
+    assert "no project or web access" in schema["properties"]["ollama"]["title"]
+
+    (tmp_path / "last_lineup.json").write_text(
+        _json.dumps({"participants": ["claude:opus@high", "ollama:qwen3:8b"], "method": "tradeoff"}))
+    schema = m._lineup_schema(catalog, "standard")
+    assert schema["properties"]["claude"]["default"] == "opus@high"
+    assert schema["properties"]["ollama"]["default"] == "qwen3:8b"
+    assert schema["properties"]["method"]["default"] == "tradeoff"
+
+
+def test_count_problem():
+    import quorum.mcp as m
+
+    assert m._count_problem(1, "standard") and m._count_problem(2, "advocate")
+    assert m._count_problem(3, "oxford") and m._count_problem(2, "oxford") is None
+    assert m._count_problem(3, "delphi") is None

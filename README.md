@@ -75,8 +75,9 @@ yourself: `claude mcp add quorum --scope user -- quorum-mcp-server`.
 Then ask, for example:
 > "Run a Quorum on whether we should split this service"
 
-Before it starts, the agent asks which providers and which discussion method to use, then a model
-and effort for each provider, with each model's supported effort levels listed.
+Before it starts, you get a form: one dropdown per available provider (off, or a model with an
+effort level) and one for the discussion method, preset to your last lineup. Clients without form
+support (MCP elicitation) ask in chat instead.
 
 **MCP tools:**
 - `quorum_list_models` - Providers with status, models, roles and effort levels
