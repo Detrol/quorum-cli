@@ -345,10 +345,11 @@ def _load_lineup() -> dict[str, Any]:
         return {}
 
 
-def _lineup_schema(catalog: dict[str, dict], method: str) -> dict[str, Any]:
+def _lineup_schema(catalog: dict[str, dict], method: str, recommended: str | None = None) -> dict[str, Any]:
     """One dropdown per available provider (Off, or model with an effort) plus the method.
 
-    Defaults come from the last lineup, so running the same set again is a single confirm.
+    Providers default to the last lineup, so running the same set again is a single confirm.
+    The method defaults to the caller's recommendation, else the last method, else `method`.
     """
     last = _load_lineup().get("participants", [])
     props: dict[str, Any] = {}
@@ -368,13 +369,18 @@ def _lineup_schema(catalog: dict[str, dict], method: str) -> dict[str, Any]:
                            "enumNames": names, "default": before if before in values else "off"}
     props["method"] = {
         "type": "string", "title": "Method", "enum": list(METHOD_INFO),
-        "enumNames": [f"{v['name']}: {v['best_for']}" for v in METHOD_INFO.values()],
-        "default": _load_lineup().get("method") or method,
+        "enumNames": [
+            f"{v['name']}: {v['best_for']}" + (" (recommended)" if key == recommended else "")
+            for key, v in METHOD_INFO.items()
+        ],
+        "default": recommended or _load_lineup().get("method") or method,
     }
     return {"type": "object", "properties": props, "required": ["method"]}
 
 
-async def _ask_lineup(catalog: dict[str, dict], method: str) -> tuple[list[str] | None, str]:
+async def _ask_lineup(
+    catalog: dict[str, dict], method: str, recommended: str | None = None
+) -> tuple[list[str] | None, str]:
     """Let the user pick participants and method in one client-side form (MCP elicitation)."""
     ctx = server.request_context
     params = ctx.session.client_params
@@ -383,7 +389,7 @@ async def _ask_lineup(catalog: dict[str, dict], method: str) -> tuple[list[str] 
             "This client cannot show a form. Ask the user in chat which providers, models "
             "(model@effort) and method to use (see quorum_list_models), then pass participants."
         )
-    schema = _lineup_schema(catalog, method)
+    schema = _lineup_schema(catalog, method, recommended)
     providers = [p for p in schema["properties"] if p != "method"]
     message = "Choose who takes part in the Quorum (at least two) and the discussion method."
     for _ in range(3):
@@ -419,7 +425,7 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
     catalog = await _catalog()
     ids = args.get("participants")
     if not ids:
-        ids, method = await _ask_lineup(catalog, method)
+        ids, method = await _ask_lineup(catalog, method, args.get("method"))
         if ids is None:
             return {"status": "cancelled", "detail": "The user closed the form; nothing was started."}
     pids = await _validate_participants(ids, args.get("effort"), catalog)
@@ -546,8 +552,10 @@ async def list_tools() -> list[types.Tool]:
             name="quorum_start",
             description=(
                 "Start a Quorum discussion. Only use when the user asks for one. Omit participants "
-                "and the user picks providers, models, effort and method in a form (preset to their "
-                "last lineup); pass participants only when the user already named them. Agent "
+                "and the user picks providers, models, effort and method in a form (providers preset "
+                "to their last lineup); pass participants only when the user already named them. "
+                "Pass method = the method that fits the question best: the form preselects it as "
+                "recommended and the user can change it. Agent "
                 "participants read the project and the web; API/local ones see only the question and "
                 "files. Returns a run_id immediately (or status 'cancelled' if the user closed the "
                 "form); then call quorum_wait until the status is 'done' or 'failed', and present the "
@@ -577,7 +585,8 @@ async def list_tools() -> list[types.Tool]:
                         "type": "string",
                         "enum": list(METHOD_INFO),
                         "description": (
-                            "Discussion method; see quorum_list_models. Default: QUORUM_METHOD, "
+                            "The method that fits the question best (see quorum_list_models). With "
+                            "the form it is the preselected recommendation. Default: QUORUM_METHOD, "
                             "else standard."
                         ),
                     },

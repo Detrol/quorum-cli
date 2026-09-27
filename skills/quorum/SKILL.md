@@ -17,19 +17,24 @@ user asks for one.
 
 1. **Write the question with full context.** Participants see only the question, the files you
    pass, and what agent participants look up themselves in the project and on the web.
-2. **Start** with `quorum_start`: the question, `cwd` = the absolute project root, and `files`
-   for specific files. Leave out `participants` and `method`: the server shows the user a form
-   with one dropdown per available provider (off, or a model with an effort level) and the
-   method, preset to their last lineup. Pass `participants` (`provider:model@effort`, strongest
-   first) and `method` only when the user already named them.
+2. **Pick the method that fits the question best** from `methods` in `quorum_list_models`
+   (`tradeoff` for A-vs-B, `delphi` for estimates, `advocate` to stress-test a plan, `oxford` for
+   a for/against debate, `brainstorm` for ideas, `socratic` for fundamentals, else `standard`),
+   or the one the user named.
+3. **Start** with `quorum_start`: the question, that `method`, `cwd` = the absolute project root,
+   and `files` for specific files. Leave out `participants`: the server shows the user a form
+   with one dropdown per available provider (off, or a model with an effort level), preset to
+   their last lineup, and the method with your pick preselected as recommended. Pass
+   `participants` (`provider:model@effort`, strongest first) only when the user already named
+   them.
    - Status `cancelled`: the user closed the form. Say so and stop.
    - Error "cannot show a form": this client has no form support. Call `quorum_list_models`,
      list each available provider's models with their effort levels and the methods in one chat
      message, ask the user to answer in one line (e.g. "claude opus@high, codex gpt-6-sol,
      tradeoff"), then call `quorum_start` again with `participants` and `method`.
-3. **Wait** with `quorum_wait` in a loop until `status` is `done` or `failed`. Tell the user the
+4. **Wait** with `quorum_wait` in a loop until `status` is `done` or `failed`. Tell the user the
    phase once in a while; do not print every poll.
-4. **Report.** Give the consensus level, the synthesis, the real disagreements, and anything
+5. **Report.** Give the consensus level, the synthesis, the real disagreements, and anything
    dropped. Add your own view only when it differs, and label it as yours. Fetch the full
    transcript (`full: true`) only when the user asks for it.
 

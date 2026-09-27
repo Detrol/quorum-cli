@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - Unreleased
+
+### Changed
+
+- The lineup form preselects the method the calling agent recommends for the question, marked "(recommended)"; the last lineup's method is used only without a recommendation
+
 ## [1.5.0] - 2026-09-25
 
 ### Added

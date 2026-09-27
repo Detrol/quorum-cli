@@ -1,6 +1,6 @@
 {
   "name": "quorum",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "On request, run a structured debate between agent CLIs (claude, codex, agy, grok) and your configured API or local models, with the models and effort you pick.",
   "author": {
     "name": "Detrol",
@@ -21,7 +21,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "quorum-cli>=1.5.0",
+        "quorum-cli>=1.5.1",
         "quorum-mcp-server"
       ],
       "tool_timeout_sec": 900

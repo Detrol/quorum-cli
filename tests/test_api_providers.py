@@ -167,3 +167,20 @@ def test_count_problem():
     assert m._count_problem(1, "standard") and m._count_problem(2, "advocate")
     assert m._count_problem(3, "oxford") and m._count_problem(2, "oxford") is None
     assert m._count_problem(3, "delphi") is None
+
+
+def test_lineup_form_preselects_recommended_method(tmp_path, monkeypatch):
+    import json as _json
+
+    import quorum.mcp as m
+
+    monkeypatch.setattr(m, "LINEUP_FILE", tmp_path / "last_lineup.json")
+    (tmp_path / "last_lineup.json").write_text(_json.dumps({"participants": [], "method": "oxford"}))
+    catalog = {"claude": {"status": "ok", "kind": "agent", "models": [{"model": "opus", "efforts": []}]}}
+
+    method = m._lineup_schema(catalog, "standard", recommended="tradeoff")["properties"]["method"]
+    assert method["default"] == "tradeoff"
+    names = dict(zip(method["enum"], method["enumNames"]))
+    assert names["tradeoff"].endswith("(recommended)") and "(recommended)" not in names["oxford"]
+    # Without a recommendation the last method is kept
+    assert m._lineup_schema(catalog, "standard")["properties"]["method"]["default"] == "oxford"
