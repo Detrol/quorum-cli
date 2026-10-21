@@ -59,7 +59,7 @@ def _write_secure_file(path: Path, content: str) -> None:
         raise ValueError(f"Symlink detected at write time: {path}")
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     # Set file permissions to owner read/write only (0600)
     os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
 
@@ -75,7 +75,7 @@ def get_validated_models_cache() -> set[str]:
     if not VALIDATED_MODELS_CACHE.exists():
         return set()
     try:
-        data = json.loads(VALIDATED_MODELS_CACHE.read_text())
+        data = json.loads(VALIDATED_MODELS_CACHE.read_text(encoding="utf-8"))
         return set(data.get("models", []))
     except (json.JSONDecodeError, OSError, KeyError, TypeError):
         # Corrupted or inaccessible cache file - return empty set
@@ -94,7 +94,7 @@ def get_user_settings() -> dict:
     if not USER_SETTINGS_CACHE.exists():
         return {}
     try:
-        return json.loads(USER_SETTINGS_CACHE.read_text())
+        return json.loads(USER_SETTINGS_CACHE.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         # Corrupted or inaccessible settings file - return empty dict
         return {}
@@ -157,7 +157,7 @@ def get_input_history() -> list[str]:
     if not INPUT_HISTORY_CACHE.exists():
         return []
     try:
-        data = json.loads(INPUT_HISTORY_CACHE.read_text())
+        data = json.loads(INPUT_HISTORY_CACHE.read_text(encoding="utf-8"))
         return data.get("history", [])
     except (json.JSONDecodeError, OSError, KeyError, TypeError):
         # Corrupted or inaccessible history file - return empty list

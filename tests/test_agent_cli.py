@@ -5,6 +5,7 @@ import json
 import os
 import stat
 import time
+from pathlib import Path
 
 import pytest
 
@@ -178,6 +179,29 @@ def test_call_participant_grok_read_only_isolated(tmp_path, monkeypatch):
     assert argv[argv.index("--tools") + 1] == ac.GROK_TOOLS
     assert "WebFetch" in argv and argv[argv.index("--effort") + 1] == "xhigh"  # max clamps to xhigh
     assert not list((tmp_path / "homes" / "grok").glob("prompt-*"))  # prompt file cleaned up
+
+
+def test_call_participant_codex_reads_reply_as_utf8(monkeypatch):
+    """Codex writes its reply file in UTF-8; a cp932 locale (Japanese Windows) must not matter.
+
+    An omitted encoding is forced to cp932 so the test catches the bug on any platform.
+    """
+    reply = "”Reply” 日本語"
+    real_read_text = Path.read_text
+
+    def cp932_by_default(self, encoding=None, *args, **kwargs):
+        return real_read_text(self, encoding or "cp932", *args, **kwargs)
+
+    async def fake_run(cmd, env, cwd, stdin=None, timeout=None):
+        with open(cmd[cmd.index("-o") + 1], "w", encoding="utf-8") as f:
+            f.write(reply)
+        return 0, "", ""
+
+    monkeypatch.setattr(ac.shutil, "which", lambda name: name)
+    monkeypatch.setattr(ac, "_run", fake_run)
+    monkeypatch.setattr(Path, "read_text", cp932_by_default)
+    p = ac.Participant("codex", "gpt-6-sol", None)
+    assert run(ac.call_participant(p, "hi", ".")) == reply
 
 
 def test_sync_login_hands_rotated_token_back(tmp_path):

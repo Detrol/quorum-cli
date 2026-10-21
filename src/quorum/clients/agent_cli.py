@@ -214,7 +214,7 @@ def _agy_home() -> Path:
     cli = home / ".gemini" / "antigravity-cli"
     cli.mkdir(parents=True, exist_ok=True)
     _resync_logins()
-    (cli / "settings.json").write_text(json.dumps(AGY_SETTINGS))
+    (cli / "settings.json").write_text(json.dumps(AGY_SETTINGS), encoding="utf-8")
     return home
 
 
@@ -311,7 +311,7 @@ async def call_participant(
         env["CODEX_HOME"] = str(_codex_home())
         try:
             code, out, err = await _run(cmd, env, cwd, stdin=prompt, timeout=timeout)
-            reply = out_file.read_text() if out_file.exists() else ""
+            reply = out_file.read_text(encoding="utf-8") if out_file.exists() else ""
         finally:
             out_file.unlink(missing_ok=True)
         if code or not reply.strip():
@@ -321,7 +321,7 @@ async def call_participant(
     if p.agent == "grok":
         env = _grok_env()
         prompt_file = HOMES_DIR / "grok" / f"prompt-{uuid.uuid4().hex}.md"
-        prompt_file.write_text(prompt)
+        prompt_file.write_text(prompt, encoding="utf-8")
         cmd = ["grok", "--prompt-file", str(prompt_file), "--model", p.model, "--tools", GROK_TOOLS,
                "--no-subagents", "--output-format", "json"]
         for rule in GROK_ALLOW:
@@ -348,7 +348,7 @@ async def call_participant(
     cmd = ["agy", "--model", model, "--sandbox", "--add-dir", cwd, "--output-format", "json"]
     if len(prompt.encode()) > AGY_MAX_ARG:
         prompt_file = home / f"prompt-{uuid.uuid4().hex}.md"
-        prompt_file.write_text(prompt)
+        prompt_file.write_text(prompt, encoding="utf-8")
         cmd += ["--add-dir", str(home)]
         prompt = f"Read your full instructions from {prompt_file} and follow them exactly."
     cmd.append(f"--print={prompt}")
@@ -397,7 +397,7 @@ class AgentCLIClient:
 
 def load_cached_catalog() -> dict | None:
     try:
-        return json.loads(CATALOG_FILE.read_text())["agents"]
+        return json.loads(CATALOG_FILE.read_text(encoding="utf-8"))["agents"]
     except (OSError, ValueError, KeyError):
         return None
 
@@ -515,14 +515,14 @@ async def discover(refresh: bool = False) -> dict[str, dict]:
     """Catalog of every Agent: status, models, efforts and roles. Cached for an hour."""
     if not refresh:
         try:
-            cached = json.loads(CATALOG_FILE.read_text())
+            cached = json.loads(CATALOG_FILE.read_text(encoding="utf-8"))
             if time.time() - cached["at"] < CATALOG_TTL:
                 return cached["agents"]
         except (OSError, ValueError, KeyError):
             pass
     agents = dict(zip(AGENTS, await asyncio.gather(*(_discover_one(a) for a in AGENTS))))
     CATALOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CATALOG_FILE.write_text(json.dumps({"at": time.time(), "agents": agents}))
+    CATALOG_FILE.write_text(json.dumps({"at": time.time(), "agents": agents}), encoding="utf-8")
     return agents
 
 

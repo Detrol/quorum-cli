@@ -250,7 +250,7 @@ async def _execute(run: Run, question: str, turn_seconds: float, total_seconds: 
         run.phase = run.status
         RUNS_DIR.mkdir(parents=True, exist_ok=True)
         path = RUNS_DIR / f"{run.id}.json"
-        path.write_text(json.dumps({"run": _status(run, full=False), "messages": run.messages}, indent=2))
+        path.write_text(json.dumps({"run": _status(run, full=False), "messages": run.messages}, indent=2), encoding="utf-8")
         if run.result is not None:
             run.result["transcript_file"] = str(path)
 
@@ -340,7 +340,7 @@ def _count_problem(n: int, method: str) -> str | None:
 
 def _load_lineup() -> dict[str, Any]:
     try:
-        return json.loads(LINEUP_FILE.read_text())
+        return json.loads(LINEUP_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
 
@@ -446,7 +446,7 @@ async def _start(args: dict[str, Any]) -> dict[str, Any]:
         question = f"Context files:\n\n{file_context}\n\n---\n\nQuestion: {question}"
 
     LINEUP_FILE.parent.mkdir(parents=True, exist_ok=True)
-    LINEUP_FILE.write_text(json.dumps({"participants": pids, "method": method}))
+    LINEUP_FILE.write_text(json.dumps({"participants": pids, "method": method}), encoding="utf-8")
     run = Run(id=uuid.uuid4().hex[:12], cwd=cwd, method=method, participants=pids)
     RUNS[run.id] = run
     turn = float(args.get("turn_timeout_minutes", DEFAULT_TURN_MINUTES)) * 60
