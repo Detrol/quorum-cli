@@ -49,9 +49,9 @@ export function Discussion() {
   // Get phase name based on current method
   const PHASE_NAMES = getPhaseNames();
   const methodPhases = PHASE_NAMES[currentMethod] || PHASE_NAMES.standard;
-  const phaseName = methodPhases[currentPhase] || `Phase ${currentPhase}`;
-  const previousPhaseName = methodPhases[previousPhase] || `Phase ${previousPhase}`;
-  const nextPhaseName = methodPhases[nextPhase] || `Phase ${nextPhase}`;
+  const phaseName = methodPhases[currentPhase] || t("phase.labelWithNumber", { phase: String(currentPhase) });
+  const previousPhaseName = methodPhases[previousPhase] || t("phase.labelWithNumber", { phase: String(previousPhase) });
+  const nextPhaseName = methodPhases[nextPhase] || t("phase.labelWithNumber", { phase: String(nextPhase) });
 
   // Thinking spinner text
   const thinkingText = useMemo(

@@ -12,6 +12,7 @@ LANGUAGE_NAMES = {
     "fr": "French",
     "es": "Spanish",
     "it": "Italian",
+    "zh": "Simplified Chinese (简体中文)",
 }
 
 

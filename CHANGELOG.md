@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Chinese (Simplified) interface** (`zh`): full translation of the terminal UI plus the model-side language instruction. Accepts `zh`, `Chinese`, `中文`, `简体中文`, `zh-CN`
+- `QUORUM_DEFAULT_LANGUAGE` is now actually read: the setting documented in `.env.example` since v1.0 was never consumed, so the UI always started in English; it now sets the initial UI language and is normalised to a language code before being stored
+
+### Changed
+
+- The last hardcoded UI strings go through i18n: `Validation failed`, `Phase N`, Oxford result labels (`✓ FOR` / `✗ AGAINST` / `◐ PARTIAL`), the synthesis attribution, the `DISCUSSION` fallback and `Best for:`
+- `MethodSelector` and `MethodAdvisor` build their translated strings per render, so switching language at runtime takes effect instead of being frozen at import time
+
+### Fixed
+
+- The header shows the localised method name instead of the raw method id (e.g. `socratic`)
+- Wide (CJK) characters are measured as two terminal columns in the header, which previously pushed the model list into the right-hand column
+- The phase heading no longer repeats itself when a method has no name for a phase
+
 ## [1.5.1] - 2026-09-27
 
 ### Changed

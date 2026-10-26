@@ -104,7 +104,7 @@ def get_response_language() -> str:
     """Get the response language from user settings.
 
     Returns:
-        Language code (en, sv, de, fr, es, it). Defaults to 'en'.
+        Language code (en, sv, de, fr, es, it, zh). Defaults to 'en'.
     """
     settings = get_user_settings()
     return settings.get("response_language", "en")
@@ -116,7 +116,7 @@ ALLOWED_USER_SETTINGS: dict[str, tuple[type, callable | None]] = {
     "discussion_method": (str, lambda v: v in {"standard", "oxford", "advocate", "socratic", "delphi", "brainstorm", "tradeoff"}),
     "synthesizer_mode": (str, lambda v: v in {"first", "random", "rotate"}),
     "max_turns": (int, lambda v: 1 <= v <= 100),
-    "response_language": (str, lambda v: v in {"en", "sv", "de", "fr", "es", "it"}),
+    "response_language": (str, lambda v: v in {"en", "sv", "de", "fr", "es", "it", "zh"}),
 }
 
 
@@ -272,6 +272,10 @@ class Settings(BaseSettings):
     google_models: str = Field(default="", alias="GOOGLE_MODELS")
     xai_models: str = Field(default="", alias="XAI_MODELS")
     # Note: Ollama models are auto-discovered, no OLLAMA_MODELS needed
+
+    # Default UI/response language used when the user has not picked one yet.
+    # Accepts a code ("zh") or a name ("Chinese"); empty means English.
+    default_language: str = Field(default="", alias="QUORUM_DEFAULT_LANGUAGE")
 
     @property
     def _provider_models_map(self) -> dict[str, str]:

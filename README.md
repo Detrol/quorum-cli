@@ -175,7 +175,7 @@ XAI_MODELS=grok-4.1,grok-4
 # Optional settings
 QUORUM_ROUNDS_PER_AGENT=2        # Discussion rounds per agent (1-10, default: 2)
 QUORUM_SYNTHESIZER=first         # Who synthesizes: first, random, or rotate
-QUORUM_DEFAULT_LANGUAGE=         # Force response language (e.g., "Swedish", "English")
+QUORUM_DEFAULT_LANGUAGE=         # Force response language (e.g., "Swedish", "English", "Chinese")
 # QUORUM_EXECUTION_MODE=auto     # VRAM optimization: auto, parallel, sequential
 ```
 
@@ -736,7 +736,7 @@ QUORUM_EXECUTION_MODE=auto
 
 ### UI Language
 
-The terminal UI is available in 6 languages, controlled by `QUORUM_DEFAULT_LANGUAGE`:
+The terminal UI is available in 7 languages, controlled by `QUORUM_DEFAULT_LANGUAGE`:
 
 | Language | Values |
 |----------|--------|
@@ -746,6 +746,7 @@ The terminal UI is available in 6 languages, controlled by `QUORUM_DEFAULT_LANGU
 | French | `fr`, `French`, `Francais` |
 | Spanish | `es`, `Spanish`, `Espanol` |
 | Italian | `it`, `Italian`, `Italiano` |
+| Chinese (Simplified) | `zh`, `Chinese`, `中文`, `简体中文`, `zh-CN` |
 
 ### Discussion Logging & Export
 

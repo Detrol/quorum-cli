@@ -22,6 +22,7 @@ const LANGUAGES: LanguageOption[] = [
   { code: "fr", flag: "🇫🇷", nativeName: "Français" },
   { code: "es", flag: "🇪🇸", nativeName: "Español" },
   { code: "it", flag: "🇮🇹", nativeName: "Italiano" },
+  { code: "zh", flag: "🇨🇳", nativeName: "中文" },
 ];
 
 interface Props {

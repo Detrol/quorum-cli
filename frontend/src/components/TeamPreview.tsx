@@ -67,6 +67,17 @@ export function TeamPreview({ assignments, method, onConfirm, onCancel }: TeamPr
   const getDisplayName = (modelId: string) =>
     getModelDisplayName(modelId, availableModels);
 
+  // Localized label for a backend role key
+  const getRoleLabel = (role: string): string => {
+    switch (role) {
+      case "FOR": return t("team.forTeam");
+      case "AGAINST": return t("team.againstTeam");
+      case "Advocate": return t("role.advocate");
+      case "Respondent": return t("role.respondent");
+      default: return role;
+    }
+  };
+
   // Get current special model (for Advocate/Socratic)
   const currentSpecialModel = specialRole
     ? currentAssignments[specialRole]?.[0]
@@ -156,7 +167,7 @@ export function TeamPreview({ assignments, method, onConfirm, onCancel }: TeamPr
     >
       <Box marginBottom={1}>
         <Text bold color="blue">
-          {isOxford ? t("team.title") : t("team.selectRole", { role: specialRole || "" })}
+          {isOxford ? t("team.title") : t("team.selectRole", { role: specialRole ? getRoleLabel(specialRole) : "" })}
         </Text>
       </Box>
 
@@ -166,7 +177,7 @@ export function TeamPreview({ assignments, method, onConfirm, onCancel }: TeamPr
           {roles.map(([role, models]) => (
             <Box key={role} marginBottom={1}>
               <Text bold color={getRoleColor(role)}>
-                {role}:
+                {getRoleLabel(role)}:
               </Text>
               <Text> </Text>
               <Text>{models.map(getDisplayName).join(", ")}</Text>
@@ -222,7 +233,7 @@ export function TeamPreview({ assignments, method, onConfirm, onCancel }: TeamPr
                 >
                   {isSpecial ? "● " : "○ "}
                   {getDisplayName(modelId)}
-                  {isSpecial && <Text color={isCursor ? "white" : "gray"}> ({specialRole})</Text>}
+                  {isSpecial && <Text color={isCursor ? "white" : "gray"}> ({getRoleLabel(specialRole!)})</Text>}
                 </Text>
               </Box>
             );

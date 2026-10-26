@@ -30,7 +30,7 @@ import { useStore, type DiscussionMethod } from "./store/index.js";
 import type { ConfidenceLevel } from "./types/protocol-values.js";
 import { Input, Discussion, ModelSelector, MethodSelector, Status, Help, SynthesizerSelector, Header, TeamPreview, ExportSelector, MethodAdvisor, LanguageSelector } from "./components/index.js";
 import { saveDiscussionToDir, exportSpecificLog, type ExportFormat } from "./utils/export.js";
-import { setLanguage, t } from "./i18n/index.js";
+import { setLanguage, getLanguage, t } from "./i18n/index.js";
 
 // Create backend client as singleton
 const backend = new BackendClient();
@@ -164,8 +164,9 @@ export function App() {
           setResponseLanguage(userSettings.response_language);
           setLanguage(userSettings.response_language);
         } else {
-          setResponseLanguage("en");
-          setLanguage("en");
+          // Fall back to backend-configured default language (normalized to a language code)
+          setLanguage(config.default_language || "en");
+          setResponseLanguage(getLanguage());
         }
 
         // Signal launcher spinner to stop and wait briefly for it to clear
@@ -209,7 +210,7 @@ export function App() {
                 if (result.valid) {
                   markModelValidated(modelId);
                 } else {
-                  markModelInvalid(modelId, result.error || "Validation failed");
+                  markModelInvalid(modelId, result.error || t("app.error.validationFailed"));
                 }
               } catch (err) {
                 markModelInvalid(modelId, err instanceof Error ? err.message : String(err));

@@ -101,7 +101,7 @@ export interface UserSettings {
   discussion_method?: "standard" | "oxford" | "advocate" | "socratic" | "delphi" | "brainstorm" | "tradeoff";
   synthesizer_mode?: "first" | "random" | "rotate";
   max_turns?: number | null;
-  response_language?: "en" | "sv" | "de" | "fr" | "es" | "it";
+  response_language?: "en" | "sv" | "de" | "fr" | "es" | "it" | "zh";
 }
 
 export type RoleAssignments = Record<string, string[]>;
@@ -148,6 +148,7 @@ export interface GetConfigResult {
   report_dir: string;
   export_dir: string | null;
   export_format: "md" | "text" | "pdf";
+  default_language?: string;
 }
 
 // ============================================================================

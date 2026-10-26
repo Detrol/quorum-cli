@@ -1,7 +1,8 @@
 /**
  * Internationalization (i18n) module for Quorum frontend.
  *
- * Supports 6 languages: English, Swedish, German, French, Spanish, Italian.
+ * Supports 7 languages: English, Swedish, German, French, Spanish, Italian,
+ * Chinese (Simplified).
  * Language is determined by QUORUM_DEFAULT_LANGUAGE setting.
  */
 
@@ -12,6 +13,7 @@ import { de } from "./translations/de.js";
 import { fr } from "./translations/fr.js";
 import { es } from "./translations/es.js";
 import { it } from "./translations/it.js";
+import { zh } from "./translations/zh.js";
 
 // All available translations
 const translations: Record<SupportedLanguage, Translations> = {
@@ -21,6 +23,7 @@ const translations: Record<SupportedLanguage, Translations> = {
   fr,
   es,
   it,
+  zh,
 };
 
 // Current language (defaults to English)
@@ -53,6 +56,14 @@ function mapLanguageToCode(lang: string | null | undefined): SupportedLanguage {
     espanol: "es",
     italian: "it",
     italiano: "it",
+    chinese: "zh",
+    "simplified chinese": "zh",
+    "zh-cn": "zh",
+    "zh_cn": "zh",
+    "zh-hans": "zh",
+    "zh-hant": "zh",
+    "中文": "zh",
+    "简体中文": "zh",
   };
 
   return nameMap[normalized] || "en";

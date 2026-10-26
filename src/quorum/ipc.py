@@ -660,6 +660,7 @@ class IPCHandler:
             "report_dir": str(report_dir),
             "export_dir": str(export_dir) if export_dir else None,
             "export_format": settings.export_format,
+            "default_language": settings.default_language or "",
         }
 
     async def _handle_get_user_settings(self, params: dict) -> dict:
@@ -1185,7 +1186,7 @@ class IPCHandler:
                     UserMessage(content=sanitized_question, source="user"),
                 ]
             ),
-            timeout=MODEL_TIMEOUT_SECONDS
+            timeout=MODEL_TIMEOUT_SECONDS,
         )
 
         # Response is already a string from our client

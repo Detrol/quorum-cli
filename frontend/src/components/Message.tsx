@@ -144,8 +144,13 @@ export function PhaseMarker({ phase, messageKey, params }: PhaseMarkerProps) {
   const { currentMethod } = useStore();
   const PHASE_NAMES = useMemo(() => getPhaseNames(), []);
   const methodPhases = PHASE_NAMES[currentMethod] || PHASE_NAMES.standard;
-  const phaseName = methodPhases[phase] || `Phase ${phase}`;
+  const phaseName = methodPhases[phase] || t("phase.labelWithNumber", { phase: String(phase) });
   const displayMessage = t(messageKey as TranslationKey, params || {});
+  // Avoid a dangling separator when no phase name is available.
+  // labelWithNumber keeps word order correct for languages like Chinese.
+  const phaseHeading = methodPhases[phase]
+    ? `${t("phase.labelWithNumber", { phase: String(phase) })}: ${phaseName}`
+    : t("phase.labelWithNumber", { phase: String(phase) });
 
   return (
     <Box
@@ -156,7 +161,7 @@ export function PhaseMarker({ phase, messageKey, params }: PhaseMarkerProps) {
       paddingX={2}
     >
       <Text bold color="blue">
-        ━━━ {t("phase.label")} {phase}: {phaseName} ━━━
+        ━━━ {phaseHeading} ━━━
       </Text>
       <Text dimColor>{displayMessage}</Text>
     </Box>
@@ -396,9 +401,9 @@ export function Synthesis({
 
   const getResultIcon = () => {
     if (isOxford) {
-      return consensus === "FOR" ? "✓ FOR"
-        : consensus === "AGAINST" ? "✗ AGAINST"
-        : "◐ PARTIAL";
+      return consensus === "FOR" ? t("synthesis.result.for")
+        : consensus === "AGAINST" ? t("synthesis.result.against")
+        : t("synthesis.result.partial");
     }
     if (isSocratic) {
       return consensus === "YES" ? "✓"
@@ -462,7 +467,15 @@ export function Synthesis({
             {isOxford ? getResultIcon() : `${getResultIcon()} ${resultLabel}: ${consensus}`}
           </Text>
           <Text dimColor>
-            {" "}({isSocratic ? t("synthesis.reflected") : isOxford ? t("synthesis.adjudicated") : t("synthesis.synthesized")} by {synthesizerModel})
+            {" "}
+            {t(
+              isSocratic
+                ? "synthesis.by.reflected"
+                : isOxford
+                  ? "synthesis.by.adjudicated"
+                  : "synthesis.by.synthesized",
+              { model: synthesizerModel }
+            )}
           </Text>
         </Box>
       )}
@@ -533,7 +546,7 @@ export function DiscussionHeader({ method, models, roleAssignments }: Discussion
   const getDisplayName = (modelId: string) =>
     getModelDisplayName(modelId, availableModels);
 
-  const title = METHOD_TITLES[method] || "DISCUSSION";
+  const title = METHOD_TITLES[method] || t("discussion.default");
 
   // Get method-specific color
   const methodColor = method === "oxford" ? "magenta"

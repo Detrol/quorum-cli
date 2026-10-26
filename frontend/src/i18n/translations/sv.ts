@@ -20,6 +20,7 @@ export const sv: Translations = {
   "app.error.oxfordEven": "Oxford kräver ett jämnt antal modeller",
   "app.error.methodMin": "{method} kräver minst {min} modeller",
   "app.error.exportFormat": "Format: md, text, pdf, json",
+  "app.error.validationFailed": "Validering misslyckades",
   "app.success.exported": "Exporterat till {path}",
   "app.placeholder.selectModels": "Skriv /models för att välja modeller...",
   "app.placeholder.askQuestion": "Ställ en fråga...",
@@ -94,9 +95,11 @@ export const sv: Translations = {
   "method.tradeoff.desc": "Strukturerad multikriterieanalys",
   "method.tradeoff.useCase": "Jämföra alternativ, komplexa beslut",
   "method.tradeoff.requirement": "2+ modeller",
+  "method.bestFor": "Bäst för: ",
 
   // Phase label
   "phase.label": "Fas",
+  "phase.labelWithNumber": "Fas {phase}",
 
   // Phase Names - Standard
   "phase.standard.1": "Oberoende svar",
@@ -239,6 +242,14 @@ export const sv: Translations = {
   "synthesis.adjudicated": "avgjorde",
   "synthesis.synthesized": "syntetiserade",
   "synthesis.ruledBy": "(avgjort av {model})",
+  "synthesis.by.synthesized": "(sammanställd av {model})",
+  "synthesis.by.reflected": "(reflekterad av {model})",
+  "synthesis.by.adjudicated": "(avgjord av {model})",
+
+  // Synthesis result markers
+  "synthesis.result.for": "✓ FÖR",
+  "synthesis.result.against": "✗ EMOT",
+  "synthesis.result.partial": "◐ DELVIS",
 
   // Synthesizer Modes
   "synth.first.name": "Första",
@@ -380,4 +391,5 @@ export const sv: Translations = {
   "discussion.delphi": "DELPHI-KONSENSUS",
   "discussion.brainstorm": "BRAINSTORM-SESSION",
   "discussion.tradeoff": "AVVÄGNINGSANALYS",
+  "discussion.default": "DISKUSSION",
 };

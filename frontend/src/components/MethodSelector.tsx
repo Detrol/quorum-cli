@@ -194,7 +194,7 @@ export function MethodSelector({ onSelect }: MethodSelectorProps) {
               <Text dimColor>{method.description}</Text>
             </Box>
             <Box marginLeft={3}>
-              <Text dimColor color="cyan">Best for: {method.bestFor}</Text>
+              <Text dimColor color="cyan">{t("method.bestFor")}{method.bestFor}</Text>
             </Box>
           </Box>
         );

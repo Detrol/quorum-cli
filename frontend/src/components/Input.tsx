@@ -5,6 +5,7 @@
 import React, { useState, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
 import { CommandPalette } from "./CommandPalette.js";
+import { t } from "../i18n/index.js";
 
 interface InputProps {
   value: string;
@@ -24,7 +25,7 @@ export function Input({
   onCommand,
   onHistoryNavigate,
   onAdvisorOpen,
-  placeholder = "Ask a question...",
+  placeholder = t("app.placeholder.askQuestion"),
   disabled = false,
 }: InputProps) {
   const [showPalette, setShowPalette] = useState(false);

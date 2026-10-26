@@ -16,16 +16,16 @@ interface MethodAdvisorProps {
   analyzeQuestion: (question: string) => Promise<AnalyzeQuestionResult>;
 }
 
-// Method display info
-const METHOD_INFO: Record<string, { name: string; color: string }> = {
-  standard: { name: "Standard", color: "white" },
-  oxford: { name: "Oxford Debate", color: "yellow" },
-  advocate: { name: "Devil's Advocate", color: "red" },
-  socratic: { name: "Socratic", color: "cyan" },
-  delphi: { name: "Delphi", color: "magenta" },
-  brainstorm: { name: "Brainstorm", color: "green" },
-  tradeoff: { name: "Tradeoff", color: "blue" },
-};
+// Method display info (evaluated at render time so language switches apply)
+const getMethodInfo = (): Record<string, { name: string; color: string }> => ({
+  standard: { name: t("method.standard.name"), color: "white" },
+  oxford: { name: t("method.oxford.name"), color: "yellow" },
+  advocate: { name: t("method.advocate.name"), color: "red" },
+  socratic: { name: t("method.socratic.name"), color: "cyan" },
+  delphi: { name: t("method.delphi.name"), color: "magenta" },
+  brainstorm: { name: t("method.brainstorm.name"), color: "green" },
+  tradeoff: { name: t("method.tradeoff.name"), color: "blue" },
+});
 
 // Spinner component
 function Spinner({ text }: { text: string }) {
@@ -59,6 +59,9 @@ export function MethodAdvisor({ onSelect, onCancel, analyzeQuestion }: MethodAdv
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Method display info, resolved per render for current language
+  const METHOD_INFO = getMethodInfo();
+
   // Get all recommendations as a flat list for navigation
   const allRecommendations = recommendations
     ? [recommendations.primary, ...recommendations.alternatives]
@@ -76,7 +79,7 @@ export function MethodAdvisor({ onSelect, onCancel, analyzeQuestion }: MethodAdv
       setRecommendations(result.recommendations);
       setPhase("results");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(err instanceof Error ? err.message : t("advisor.error"));
       setPhase("input");
     }
   }, [question, analyzeQuestion]);

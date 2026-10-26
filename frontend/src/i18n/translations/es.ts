@@ -20,6 +20,7 @@ export const es: Translations = {
   "app.error.oxfordEven": "Oxford requiere un número par de modelos",
   "app.error.methodMin": "{method} requiere al menos {min} modelos",
   "app.error.exportFormat": "Formato: md, text, pdf, json",
+  "app.error.validationFailed": "Validación fallida",
   "app.success.exported": "Exportado a {path}",
   "app.placeholder.selectModels": "Escriba /models para seleccionar modelos...",
   "app.placeholder.askQuestion": "Haga una pregunta...",
@@ -94,9 +95,11 @@ export const es: Translations = {
   "method.tradeoff.desc": "Análisis multicriterio estructurado",
   "method.tradeoff.useCase": "Comparar opciones, decisiones complejas",
   "method.tradeoff.requirement": "2+ modelos",
+  "method.bestFor": "Ideal para: ",
 
   // Phase label
   "phase.label": "Fase",
+  "phase.labelWithNumber": "Fase {phase}",
 
   // Phase Names - Standard
   "phase.standard.1": "Respuestas independientes",
@@ -239,6 +242,14 @@ export const es: Translations = {
   "synthesis.adjudicated": "adjudicó",
   "synthesis.synthesized": "sintetizó",
   "synthesis.ruledBy": "(decidido por {model})",
+  "synthesis.by.synthesized": "(sintetizado por {model})",
+  "synthesis.by.reflected": "(reflexionado por {model})",
+  "synthesis.by.adjudicated": "(adjudicado por {model})",
+
+  // Synthesis result markers
+  "synthesis.result.for": "✓ A FAVOR",
+  "synthesis.result.against": "✗ EN CONTRA",
+  "synthesis.result.partial": "◐ PARCIAL",
 
   // Synthesizer Modes
   "synth.first.name": "Primero",
@@ -380,4 +391,5 @@ export const es: Translations = {
   "discussion.delphi": "CONSENSO DELPHI",
   "discussion.brainstorm": "SESIÓN DE LLUVIA DE IDEAS",
   "discussion.tradeoff": "ANÁLISIS DE COMPENSACIONES",
+  "discussion.default": "DEBATE",
 };

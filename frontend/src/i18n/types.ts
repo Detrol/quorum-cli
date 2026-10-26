@@ -19,6 +19,7 @@ export type TranslationKey =
   | "app.error.oxfordEven"
   | "app.error.methodMin"
   | "app.error.exportFormat"
+  | "app.error.validationFailed"
   | "app.success.exported"
   | "app.placeholder.selectModels"
   | "app.placeholder.askQuestion"
@@ -93,9 +94,11 @@ export type TranslationKey =
   | "method.tradeoff.desc"
   | "method.tradeoff.useCase"
   | "method.tradeoff.requirement"
+  | "method.bestFor"
 
   // Phase label
   | "phase.label"
+  | "phase.labelWithNumber"
 
   // Phase Names - Standard
   | "phase.standard.1"
@@ -238,6 +241,14 @@ export type TranslationKey =
   | "synthesis.adjudicated"
   | "synthesis.synthesized"
   | "synthesis.ruledBy"
+  | "synthesis.by.synthesized"
+  | "synthesis.by.reflected"
+  | "synthesis.by.adjudicated"
+
+  // Synthesis result markers
+  | "synthesis.result.for"
+  | "synthesis.result.against"
+  | "synthesis.result.partial"
 
   // Synthesizer Modes
   | "synth.first.name"
@@ -370,8 +381,9 @@ export type TranslationKey =
   | "discussion.socratic"
   | "discussion.delphi"
   | "discussion.brainstorm"
-  | "discussion.tradeoff";
+  | "discussion.tradeoff"
+  | "discussion.default";
 
 export type Translations = Record<TranslationKey, string>;
 
-export type SupportedLanguage = "en" | "sv" | "de" | "fr" | "es" | "it";
+export type SupportedLanguage = "en" | "sv" | "de" | "fr" | "es" | "it" | "zh";
