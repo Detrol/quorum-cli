@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **DeepSeek and Aliyun providers** - `DEEPSEEK_*` and `ALIYUN_*` in `~/.quorum/.env` work like the other OpenAI-compatible providers (`<provider>:<model>` ids, no tools), so both no longer need the generic `custom` slot. Aliyun defaults to the DashScope compatible endpoint and accepts a custom MAAS base URL via `ALIYUN_BASE_URL`
+- **Chinese model providers** - MiniMax, Zhipu AI (GLM), Moonshot AI (Kimi), StepFun, Volcengine Ark (Doubao), Baidu Qianfan (ERNIE), Tencent TokenHub and Baichuan join the same `*_API_KEY` / `*_MODELS` pattern, each with its own default base URL
+
 ## [1.5.1] - 2026-09-27
 
 ### Changed

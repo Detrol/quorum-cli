@@ -4,12 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import quorum.config
+from quorum.config import Settings
 from quorum.providers import (
     ModelInfo,
     format_display_name,
     get_provider_for_model,
     list_all_models_sync,
 )
+from tests.provider_specs import CN_PROVIDERS, PROVIDER_ENV_VARS
 
 
 class TestFormatDisplayName:
@@ -128,6 +131,30 @@ class TestGetProviderForModel:
         assert get_provider_for_model("grok-3") == "xai"
         assert get_provider_for_model("grok-3-mini") == "xai"
 
+    @patch("quorum.providers.get_settings")
+    def test_deepseek_models_from_config(self, mock_get_settings):
+        """Models in DEEPSEEK_MODELS should return 'deepseek'."""
+        mock_settings = MagicMock()
+        mock_settings.get_models.side_effect = lambda p: {
+            "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+        }.get(p, [])
+        mock_get_settings.return_value = mock_settings
+
+        assert get_provider_for_model("deepseek-chat") == "deepseek"
+        assert get_provider_for_model("deepseek-reasoner") == "deepseek"
+
+    @patch("quorum.providers.get_settings")
+    def test_aliyun_models_from_config(self, mock_get_settings):
+        """Models in ALIYUN_MODELS should return 'aliyun'."""
+        mock_settings = MagicMock()
+        mock_settings.get_models.side_effect = lambda p: {
+            "aliyun": ["qwen3.8-flash", "qwen3.8-plus"],
+        }.get(p, [])
+        mock_get_settings.return_value = mock_settings
+
+        assert get_provider_for_model("qwen3.8-flash") == "aliyun"
+        assert get_provider_for_model("qwen3.8-plus") == "aliyun"
+
     def test_ollama_prefix_routing(self):
         """Models with 'ollama:' prefix should return 'ollama'."""
         # Ollama uses prefix-based routing, no config lookup needed
@@ -159,6 +186,50 @@ class TestGetProviderForModel:
 
         # Should return openai (checked first)
         assert get_provider_for_model("duplicate-model") == "openai"
+
+
+class TestCNProviderRouting:
+    """Tests for the Chinese OpenAI-compatible providers."""
+
+    @pytest.fixture(autouse=True)
+    def clear_env(self, monkeypatch, tmp_path):
+        """Clear provider env vars and hide any real .env file."""
+        for var in PROVIDER_ENV_VARS:
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setattr(
+            quorum.config,
+            "_get_active_env_file",
+            lambda: tmp_path / ".env.nonexistent",
+        )
+
+    @pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+    def test_models_from_config(self, spec):
+        """Models listed under a provider's *_MODELS route to that provider."""
+        mock_settings = MagicMock()
+        mock_settings.get_models.side_effect = lambda p: {
+            spec.key: [spec.sample_model],
+        }.get(p, [])
+
+        with patch("quorum.providers.get_settings", return_value=mock_settings):
+            assert get_provider_for_model(spec.sample_model) == spec.key
+
+    @pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+    def test_routing_from_env_models_var(self, spec, monkeypatch):
+        """A model set through *_MODELS routes to its provider end to end."""
+        monkeypatch.setenv(spec.models_env, spec.sample_model)
+        settings = Settings(_env_file=None)
+
+        with patch("quorum.providers.get_settings", return_value=settings):
+            assert get_provider_for_model(spec.sample_model) == spec.key
+
+    @pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+    def test_unconfigured_model_returns_none(self, spec):
+        """A provider without configured models does not claim any model."""
+        mock_settings = MagicMock()
+        mock_settings.get_models.return_value = []
+
+        with patch("quorum.providers.get_settings", return_value=mock_settings):
+            assert get_provider_for_model(spec.sample_model) is None
 
 
 class TestModelInfo:
@@ -200,6 +271,35 @@ class TestListAllModelsSync:
             # Ollama uses auto-discovery, not config-based listing
             assert "ollama" not in result
 
+    def test_omits_deepseek_aliyun_when_unconfigured(self):
+        """Test deepseek/aliyun are left out when no models are configured."""
+        with patch("quorum.providers.get_settings") as mock_settings:
+            mock = MagicMock()
+            mock.get_models_with_display_names.return_value = []
+            mock_settings.return_value = mock
+
+            result = list_all_models_sync()
+
+            assert "deepseek" not in result
+            assert "aliyun" not in result
+
+    def test_includes_deepseek_aliyun_when_configured(self):
+        """Test deepseek/aliyun are listed once models are configured."""
+        with patch("quorum.providers.get_settings") as mock_settings:
+            mock = MagicMock()
+            mock.get_models_with_display_names.side_effect = lambda p: {
+                "deepseek": [("deepseek-chat", "DeepSeek Chat")],
+                "aliyun": [("qwen3.8-flash", "Qwen3.8 Flash")],
+            }.get(p, [])
+            mock_settings.return_value = mock
+
+            result = list_all_models_sync()
+
+            assert result["deepseek"][0].id == "deepseek-chat"
+            assert result["deepseek"][0].provider == "deepseek"
+            assert result["aliyun"][0].id == "qwen3.8-flash"
+            assert result["aliyun"][0].display_name == "Qwen3.8 Flash"
+
     def test_returns_model_info_objects(self):
         """Test that ModelInfo objects are returned."""
         with patch("quorum.providers.get_settings") as mock_settings:
@@ -215,6 +315,35 @@ class TestListAllModelsSync:
             assert isinstance(result["openai"][0], ModelInfo)
             assert result["openai"][0].id == "gpt-4o"
             assert result["openai"][0].display_name == "GPT 4o"
+
+    @pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+    def test_omits_cn_providers_when_unconfigured(self, spec):
+        """Test Chinese providers are left out when no models are configured."""
+        with patch("quorum.providers.get_settings") as mock_settings:
+            mock = MagicMock()
+            mock.get_models_with_display_names.return_value = []
+            mock_settings.return_value = mock
+
+            result = list_all_models_sync()
+
+            assert spec.key not in result
+
+    @pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+    def test_includes_cn_providers_when_configured(self, spec):
+        """Test Chinese providers are listed once their models are configured."""
+        with patch("quorum.providers.get_settings") as mock_settings:
+            mock = MagicMock()
+            mock.get_models_with_display_names.side_effect = lambda p: {
+                spec.key: [(spec.sample_model, "Sample Model")],
+            }.get(p, [])
+            mock_settings.return_value = mock
+
+            result = list_all_models_sync()
+
+            assert spec.key in result
+            assert result[spec.key][0].id == spec.sample_model
+            assert result[spec.key][0].provider == spec.key
+            assert result[spec.key][0].display_name == "Sample Model"
 
 
 class TestDiscoverOllamaModels:

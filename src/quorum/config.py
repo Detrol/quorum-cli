@@ -242,6 +242,76 @@ class Settings(BaseSettings):
     # These allow connecting to services that use the OpenAI API format:
     # OpenRouter, LM Studio, llama-swap, LocalAI, vLLM, etc.
 
+    # DeepSeek (official OpenAI-compatible endpoint)
+    deepseek_api_key: str | None = Field(default=None, alias="DEEPSEEK_API_KEY")
+    deepseek_base_url: str = Field(
+        default="https://api.deepseek.com/v1", alias="DEEPSEEK_BASE_URL"
+    )
+    deepseek_models: str = Field(default="", alias="DEEPSEEK_MODELS")
+
+    # Aliyun DashScope / Model Studio (OpenAI-compatible mode)
+    aliyun_api_key: str | None = Field(default=None, alias="ALIYUN_API_KEY")
+    aliyun_base_url: str = Field(
+        default="https://dashscope.aliyuncs.com/compatible-mode/v1", alias="ALIYUN_BASE_URL"
+    )
+    aliyun_models: str = Field(default="", alias="ALIYUN_MODELS")
+
+    # MiniMax (OpenAI-compatible endpoint)
+    minimax_api_key: str | None = Field(default=None, alias="MINIMAX_API_KEY")
+    minimax_base_url: str = Field(
+        default="https://api.minimaxi.com/v1", alias="MINIMAX_BASE_URL"
+    )
+    minimax_models: str = Field(default="", alias="MINIMAX_MODELS")
+
+    # Zhipu AI (GLM) (OpenAI-compatible endpoint)
+    zhipu_api_key: str | None = Field(default=None, alias="ZHIPU_API_KEY")
+    zhipu_base_url: str = Field(
+        default="https://open.bigmodel.cn/api/paas/v4", alias="ZHIPU_BASE_URL"
+    )
+    zhipu_models: str = Field(default="", alias="ZHIPU_MODELS")
+
+    # Moonshot AI (Kimi) (OpenAI-compatible endpoint)
+    moonshot_api_key: str | None = Field(default=None, alias="MOONSHOT_API_KEY")
+    moonshot_base_url: str = Field(
+        default="https://api.moonshot.cn/v1", alias="MOONSHOT_BASE_URL"
+    )
+    moonshot_models: str = Field(default="", alias="MOONSHOT_MODELS")
+
+    # StepFun (OpenAI-compatible endpoint)
+    stepfun_api_key: str | None = Field(default=None, alias="STEPFUN_API_KEY")
+    stepfun_base_url: str = Field(
+        default="https://api.stepfun.com/v1", alias="STEPFUN_BASE_URL"
+    )
+    stepfun_models: str = Field(default="", alias="STEPFUN_MODELS")
+
+    # Volcengine Ark (Doubao) (OpenAI-compatible endpoint)
+    volcengine_api_key: str | None = Field(default=None, alias="ARK_API_KEY")
+    volcengine_base_url: str = Field(
+        default="https://ark.cn-beijing.volces.com/api/v3", alias="ARK_BASE_URL"
+    )
+    volcengine_models: str = Field(default="", alias="ARK_MODELS")
+
+    # Baidu Qianfan (ERNIE) (OpenAI-compatible endpoint)
+    qianfan_api_key: str | None = Field(default=None, alias="QIANFAN_API_KEY")
+    qianfan_base_url: str = Field(
+        default="https://qianfan.baidubce.com/v2", alias="QIANFAN_BASE_URL"
+    )
+    qianfan_models: str = Field(default="", alias="QIANFAN_MODELS")
+
+    # Baichuan (OpenAI-compatible endpoint)
+    baichuan_api_key: str | None = Field(default=None, alias="BAICHUAN_API_KEY")
+    baichuan_base_url: str = Field(
+        default="https://api.baichuan-ai.com/v1", alias="BAICHUAN_BASE_URL"
+    )
+    baichuan_models: str = Field(default="", alias="BAICHUAN_MODELS")
+
+    # Tencent TokenHub (OpenAI-compatible endpoint)
+    tokenhub_api_key: str | None = Field(default=None, alias="TOKENHUB_API_KEY")
+    tokenhub_base_url: str = Field(
+        default="https://tokenhub.tencentcloudmaas.com/v1", alias="TOKENHUB_BASE_URL"
+    )
+    tokenhub_models: str = Field(default="", alias="TOKENHUB_MODELS")
+
     # OpenRouter (multi-model aggregator)
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     openrouter_base_url: str = Field(
@@ -282,6 +352,16 @@ class Settings(BaseSettings):
             "google": self.google_models,
             "xai": self.xai_models,
             # OpenAI-compatible providers
+            "deepseek": self.deepseek_models,
+            "aliyun": self.aliyun_models,
+            "minimax": self.minimax_models,
+            "zhipu": self.zhipu_models,
+            "moonshot": self.moonshot_models,
+            "stepfun": self.stepfun_models,
+            "volcengine": self.volcengine_models,
+            "qianfan": self.qianfan_models,
+            "baichuan": self.baichuan_models,
+            "tokenhub": self.tokenhub_models,
             "openrouter": self.openrouter_models,
             "lmstudio": self.lmstudio_models,
             "llamaswap": self.llamaswap_models,
@@ -339,7 +419,9 @@ class Settings(BaseSettings):
 
     @field_validator(
         "openai_api_key", "anthropic_api_key", "google_api_key", "xai_api_key",
-        "ollama_api_key", "openrouter_api_key", "lmstudio_api_key",
+        "ollama_api_key", "deepseek_api_key", "aliyun_api_key", "minimax_api_key", "zhipu_api_key",
+        "moonshot_api_key", "stepfun_api_key", "volcengine_api_key", "qianfan_api_key",
+        "baichuan_api_key", "tokenhub_api_key", "openrouter_api_key", "lmstudio_api_key",
         "llamaswap_api_key", "custom_api_key",
         mode="after"
     )
@@ -564,6 +646,56 @@ class Settings(BaseSettings):
 
     # OpenAI-compatible providers
     @property
+    def has_deepseek(self) -> bool:
+        """DeepSeek is available if API key is set."""
+        return bool(self.deepseek_api_key)
+
+    @property
+    def has_aliyun(self) -> bool:
+        """Aliyun DashScope is available if API key is set."""
+        return bool(self.aliyun_api_key)
+
+    @property
+    def has_minimax(self) -> bool:
+        """MiniMax is available if API key is set."""
+        return bool(self.minimax_api_key)
+
+    @property
+    def has_zhipu(self) -> bool:
+        """Zhipu AI (GLM) is available if API key is set."""
+        return bool(self.zhipu_api_key)
+
+    @property
+    def has_moonshot(self) -> bool:
+        """Moonshot AI (Kimi) is available if API key is set."""
+        return bool(self.moonshot_api_key)
+
+    @property
+    def has_stepfun(self) -> bool:
+        """StepFun is available if API key is set."""
+        return bool(self.stepfun_api_key)
+
+    @property
+    def has_volcengine(self) -> bool:
+        """Volcengine Ark (Doubao) is available if API key is set."""
+        return bool(self.volcengine_api_key)
+
+    @property
+    def has_qianfan(self) -> bool:
+        """Baidu Qianfan (ERNIE) is available if API key is set."""
+        return bool(self.qianfan_api_key)
+
+    @property
+    def has_baichuan(self) -> bool:
+        """Baichuan is available if API key is set."""
+        return bool(self.baichuan_api_key)
+
+    @property
+    def has_tokenhub(self) -> bool:
+        """Tencent TokenHub is available if API key is set."""
+        return bool(self.tokenhub_api_key)
+
+    @property
     def has_openrouter(self) -> bool:
         """OpenRouter is available if API key is set."""
         return bool(self.openrouter_api_key)
@@ -599,6 +731,26 @@ class Settings(BaseSettings):
         if self.has_ollama:
             providers.append("ollama")
         # OpenAI-compatible providers
+        if self.has_deepseek:
+            providers.append("deepseek")
+        if self.has_aliyun:
+            providers.append("aliyun")
+        if self.has_minimax:
+            providers.append("minimax")
+        if self.has_zhipu:
+            providers.append("zhipu")
+        if self.has_moonshot:
+            providers.append("moonshot")
+        if self.has_stepfun:
+            providers.append("stepfun")
+        if self.has_volcengine:
+            providers.append("volcengine")
+        if self.has_qianfan:
+            providers.append("qianfan")
+        if self.has_baichuan:
+            providers.append("baichuan")
+        if self.has_tokenhub:
+            providers.append("tokenhub")
         if self.has_openrouter:
             providers.append("openrouter")
         if self.has_lmstudio:

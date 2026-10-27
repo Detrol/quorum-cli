@@ -7,6 +7,9 @@ from dataclasses import dataclass
 
 from .config import get_settings
 
+# Providers whose .env variables are named after the vendor product, not the provider key.
+_ENV_PREFIX_OVERRIDES = {"volcengine": "ARK"}
+
 # Patterns for non-generative models that cannot participate in discussions
 # These models return vectors (embedding) or transcriptions (whisper), not chat responses
 NON_GENERATIVE_PATTERNS = ("embed", "bge-", "minilm", "paraphrase", "whisper")
@@ -101,7 +104,7 @@ def list_all_models_sync() -> dict[str, list[ModelInfo]]:
         ]
 
     # OpenAI-compatible providers
-    for provider in ["openrouter", "lmstudio", "llamaswap", "custom"]:
+    for provider in ["deepseek", "aliyun", "minimax", "zhipu", "moonshot", "stepfun", "volcengine", "qianfan", "baichuan", "tokenhub", "openrouter", "lmstudio", "llamaswap", "custom"]:
         models = settings.get_models_with_display_names(provider)
         if models:  # Only include if configured
             result[provider] = [
@@ -118,8 +121,9 @@ def get_provider_for_model(model_id: str) -> str | None:
     Cloud providers (OpenAI, Anthropic, Google, xAI) require models to be
     listed in their respective *_MODELS environment variables.
 
-    OpenAI-compatible providers (OpenRouter, LM Studio, llama-swap, Custom)
-    also require models to be listed in their respective *_MODELS variables.
+    OpenAI-compatible providers (DeepSeek, Aliyun, MiniMax, Zhipu AI (GLM), Moonshot AI (Kimi), StepFun, Volcengine Ark (Doubao), Baidu Qianfan (ERNIE), Baichuan, Tencent TokenHub, OpenRouter, LM Studio,
+    llama-swap, Custom) also require models to be listed in their respective
+    *_MODELS variables.
 
     Ollama is a special case: models are auto-discovered and use prefix-based
     routing with the "ollama:" prefix.
@@ -129,7 +133,8 @@ def get_provider_for_model(model_id: str) -> str | None:
 
     Returns:
         Provider name ("openai", "anthropic", "google", "xai", "ollama",
-        "openrouter", "lmstudio", "llamaswap", "custom") or None if not configured.
+        "deepseek", "aliyun", "openrouter", "lmstudio", "llamaswap", "custom")
+        or None if not configured.
     """
     # Special case: Ollama prefix-based routing (auto-discovered models)
     if model_id.startswith("ollama:"):
@@ -145,7 +150,7 @@ def get_provider_for_model(model_id: str) -> str | None:
             return provider
 
     # OpenAI-compatible providers
-    for provider in ["openrouter", "lmstudio", "llamaswap", "custom"]:
+    for provider in ["deepseek", "aliyun", "minimax", "zhipu", "moonshot", "stepfun", "volcengine", "qianfan", "baichuan", "tokenhub", "openrouter", "lmstudio", "llamaswap", "custom"]:
         configured_models = settings.get_models(provider)
         if model_id in configured_models:
             return provider
@@ -235,6 +240,16 @@ async def discover_ollama_models(timeout: float = 5.0) -> list[tuple[str, str]]:
         return []
 
 
+def _env_prefix(provider: str) -> str:
+    """Env var prefix of a provider, e.g. ARK for volcengine.
+
+    Most providers name their variables after the provider itself, but some use
+    the vendor's product name (Volcengine Ark uses ARK_*), so the hint in the
+    catalog has to name the variables the user actually sets.
+    """
+    return _ENV_PREFIX_OVERRIDES.get(provider, provider.upper())
+
+
 async def api_catalog() -> dict[str, dict]:
     """API and local providers from the .env config, by the same rules as the TUI.
 
@@ -252,10 +267,11 @@ async def api_catalog() -> dict[str, dict]:
             missing = f"no models at {settings.ollama_base_url} (is Ollama running?)"
         else:
             rows = settings.get_models_with_display_names(provider)
+            prefix = _env_prefix(provider)
             if not getattr(settings, f"has_{provider}"):
-                rows, missing = [], f"not configured ({provider.upper()}_* in ~/.quorum/.env)"
+                rows, missing = [], f"not configured ({prefix}_* in ~/.quorum/.env)"
             else:
-                missing = f"no models ({provider.upper()}_MODELS in ~/.quorum/.env)"
+                missing = f"no models ({prefix}_MODELS in ~/.quorum/.env)"
         out[provider] = {
             "kind": "local" if provider in ("ollama", "lmstudio", "llamaswap") else "api",
             "status": "ok" if rows else "unavailable",

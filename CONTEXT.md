@@ -6,7 +6,7 @@
 
 **Provider**: Where a Participant's model runs: an Agent, an API provider, or a local provider.
 
-**API provider**: A hosted model API configured with a key and a `*_MODELS` list in `~/.quorum/.env` — openai, anthropic, google, xai, openrouter, custom. Its Participants have no tools: they see only the question and files.
+**API provider**: A hosted model API configured with a key and a `*_MODELS` list in `~/.quorum/.env` — openai, anthropic, google, xai, openrouter, deepseek, aliyun, minimax, zhipu, moonshot, stepfun, volcengine, qianfan, tokenhub, baichuan, custom. Its Participants have no tools: they see only the question and files.
 
 **Local provider**: A model server on the user's own machine or network — ollama (models auto-discovered), lmstudio, llamaswap. No tools, like API providers.
 

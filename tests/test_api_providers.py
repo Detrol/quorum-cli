@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from quorum.clients.types import SystemMessage, UserMessage
+from tests.provider_specs import CN_PROVIDERS
 
 
 def run(coro):
@@ -91,13 +92,27 @@ def test_anthropic_client_effort_uses_adaptive_thinking():
     assert "output_config" not in plain._client.messages.create.call_args.kwargs
 
 
+def test_api_providers_include_deepseek_and_aliyun():
+    from quorum.clients.agent_cli import API_PROVIDERS
+
+    assert "deepseek" in API_PROVIDERS and "aliyun" in API_PROVIDERS
+
+
+def test_api_providers_include_chinese_providers():
+    from quorum.clients.agent_cli import API_PROVIDERS
+
+    for spec in CN_PROVIDERS:
+        assert spec.key in API_PROVIDERS
+
+
 @patch("quorum.providers.discover_ollama_models", new_callable=AsyncMock)
 @patch("quorum.providers.get_settings")
 def test_api_catalog_follows_env_config(mock_settings, mock_ollama):
     from quorum.providers import api_catalog
 
     s = settings()
-    for p in ("openrouter", "lmstudio", "llamaswap", "custom", "google", "xai"):
+    for p in ("openrouter", "lmstudio", "llamaswap", "custom", "google", "xai",
+              "deepseek", "aliyun"):
         setattr(s, f"has_{p}", False)
     mock_settings.return_value = s
     mock_ollama.return_value = [("ollama:qwen3:8b", "Qwen3 8b")]
@@ -122,6 +137,89 @@ def test_mcp_canonicalizes_bare_ids_and_drops_unsupported_effort():
         assert ids == ["claude:opus@high", "openai:gpt-5.5@high", "ollama:qwen3:8b"]
         with pytest.raises(ValueError, match="Unknown model 'gpt-4o'"):
             run(m._validate_participants(["gpt-4o"], None, catalog))
+
+
+@patch("quorum.providers.discover_ollama_models", new_callable=AsyncMock)
+@patch("quorum.providers.get_settings")
+def test_api_catalog_reports_deepseek_aliyun(mock_settings, mock_ollama):
+    from quorum.providers import api_catalog
+
+    s = settings(has_deepseek=True, has_aliyun=True,
+                 deepseek_api_key="sk-deepseek-test-key-12345",
+                 aliyun_api_key="sk-aliyun-test-key-123456")
+    s.get_models_with_display_names.side_effect = lambda p: {
+        "deepseek": [("deepseek-chat", "DeepSeek Chat")],
+        "aliyun": [("qwen3.8-flash", "Qwen3.8 Flash")],
+    }.get(p, [])
+    mock_settings.return_value = s
+    mock_ollama.return_value = []
+    cat = run(api_catalog())
+    assert cat["deepseek"]["status"] == "ok" and cat["deepseek"]["kind"] == "api"
+    assert cat["deepseek"]["models"][0]["id"].startswith("deepseek:")
+    assert cat["aliyun"]["status"] == "ok"
+    assert cat["aliyun"]["models"][0]["id"] == "aliyun:qwen3.8-flash"
+
+
+@pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+@patch("quorum.providers.discover_ollama_models", new_callable=AsyncMock)
+@patch("quorum.providers.get_settings")
+def test_api_catalog_reports_chinese_providers(mock_settings, mock_ollama, spec):
+    """A configured Chinese provider shows up as an ok api participant."""
+    from quorum.providers import api_catalog
+
+    s = settings()
+    for p in ("openrouter", "lmstudio", "llamaswap", "custom", "google", "xai",
+              "deepseek", "aliyun"):
+        setattr(s, f"has_{p}", False)
+    for p in ("minimax", "zhipu", "moonshot", "stepfun", "volcengine", "qianfan",
+              "tokenhub", "baichuan"):
+        setattr(s, f"has_{p}", p == spec.key)
+    setattr(s, spec.api_key_attr, f"sk-{spec.key}-test-key-123456")
+    s.get_models_with_display_names.side_effect = lambda p: (
+        [(spec.sample_model, "Sample Model")] if p == spec.key else []
+    )
+    mock_settings.return_value = s
+    mock_ollama.return_value = []
+    cat = run(api_catalog())
+    assert cat[spec.key]["status"] == "ok"
+    assert cat[spec.key]["kind"] == "api"
+    assert cat[spec.key]["models"][0]["id"] == f"{spec.key}:{spec.sample_model}"
+
+
+@pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+@patch("quorum.providers.discover_ollama_models", new_callable=AsyncMock)
+@patch("quorum.providers.get_settings")
+def test_api_catalog_marks_unconfigured_chinese_providers_unavailable(
+    mock_settings, mock_ollama, spec
+):
+    """A Chinese provider without models is unavailable, not ok."""
+    from quorum.providers import api_catalog
+
+    s = settings()
+    setattr(s, f"has_{spec.key}", True)
+    setattr(s, spec.api_key_attr, f"sk-{spec.key}-test-key-123456")
+    s.get_models_with_display_names.side_effect = lambda p: []
+    mock_settings.return_value = s
+    mock_ollama.return_value = []
+    cat = run(api_catalog())
+    assert cat[spec.key]["status"] == "unavailable"
+    assert cat[spec.key]["models"] == []
+
+
+@pytest.mark.parametrize("spec", CN_PROVIDERS, ids=lambda s: s.key)
+@patch("quorum.providers.discover_ollama_models", new_callable=AsyncMock)
+@patch("quorum.providers.get_settings")
+def test_api_catalog_hint_names_the_actual_env_prefix(mock_settings, mock_ollama, spec):
+    """The hint names the env vars the user actually sets, e.g. ARK_* not VOLCENGINE_*."""
+    from quorum.providers import api_catalog
+
+    s = settings()
+    setattr(s, f"has_{spec.key}", False)
+    s.get_models_with_display_names.side_effect = lambda p: []
+    mock_settings.return_value = s
+    mock_ollama.return_value = []
+    cat = run(api_catalog())
+    assert f"{spec.env_prefix}_*" in cat[spec.key]["detail"]
 
 
 def test_global_config_ignores_cwd_env(tmp_path, monkeypatch):
@@ -184,3 +282,21 @@ def test_lineup_form_preselects_recommended_method(tmp_path, monkeypatch):
     assert names["tradeoff"].endswith("(recommended)") and "(recommended)" not in names["oxford"]
     # Without a recommendation the last method is kept
     assert m._lineup_schema(catalog, "standard")["properties"]["method"]["default"] == "oxford"
+
+
+@patch("quorum.providers.discover_ollama_models", new_callable=AsyncMock)
+@patch("quorum.providers.get_settings")
+def test_api_catalog_detail_names_the_env_variables_to_set(mock_settings, mock_ollama):
+    from quorum.providers import api_catalog
+
+    s = settings()
+    for spec in CN_PROVIDERS:
+        setattr(s, f"has_{spec.key}", False)
+    mock_settings.return_value = s
+    mock_ollama.return_value = []
+    cat = run(api_catalog())
+    # Volcengine Ark uses ARK_* variables, not VOLCENGINE_*
+    assert "ARK_*" in cat["volcengine"]["detail"]
+    assert "VOLCENGINE" not in cat["volcengine"]["detail"]
+    assert "MINIMAX_*" in cat["minimax"]["detail"]
+    assert "ZHIPU_*" in cat["zhipu"]["detail"]

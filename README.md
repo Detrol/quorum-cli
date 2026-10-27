@@ -53,8 +53,9 @@ Ask your coding agent for a Quorum and it runs a structured debate between the m
   on your own subscription and needs no API key. They can read your project (read-only) and use the
   web, isolated from your hooks, plugins and instruction files.
 - **API and local models** from your `~/.quorum/.env` (see [Configuration](#configuration)): OpenAI,
-  Anthropic, Google, xAI, OpenRouter, LM Studio, llama-swap, custom endpoints and Ollama. They see the
-  question and any files passed with it, but have no tool access.
+  Anthropic, Google, xAI, OpenRouter, DeepSeek, Aliyun DashScope, MiniMax, Zhipu AI, Moonshot AI,
+  StepFun, Volcengine Ark, Baidu Qianfan, Tencent TokenHub, Baichuan, LM Studio, llama-swap, custom
+  endpoints and Ollama. They see the question and any files passed with it, but have no tool access.
 
 Agents and API models can take part in the same discussion.
 
@@ -187,6 +188,16 @@ You only need to configure the providers you want to use. At least one provider 
 - **Anthropic**: https://docs.anthropic.com/en/docs/about-claude/models
 - **Google**: https://ai.google.dev/gemini-api/docs/models
 - **xAI (Grok)**: https://docs.x.ai/docs/models
+- **DeepSeek**: https://platform.deepseek.com/api_keys
+- **Aliyun DashScope (Model Studio)**: https://bailian.console.aliyun.com/
+- **MiniMax**: https://platform.minimaxi.com/user-center/basic-information/interface-key
+- **Zhipu AI (GLM)**: https://open.bigmodel.cn/usercenter/apikeys
+- **Moonshot AI (Kimi)**: https://platform.moonshot.cn/console/api-keys
+- **StepFun**: https://platform.stepfun.com/console/my/key
+- **Volcengine Ark (Doubao)**: https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey
+- **Baidu Qianfan (ERNIE)**: https://console.bce.baidu.com/qianfan/ais/console/apikey
+- **Tencent TokenHub**: https://console.cloud.tencent.com/tokenhub
+- **Baichuan**: https://platform.baichuan-ai.com/console/onlineService
 - **Ollama**: https://ollama.com/library
 
 ### Ollama (Local Models)
@@ -207,12 +218,86 @@ Models appear with `ollama:` prefix (e.g., `ollama:llama3`, `ollama:qwen3:8b`).
 
 ### OpenAI-Compatible Providers
 
-Quorum supports any service that uses the OpenAI API format. This lets you use OpenRouter, LM Studio, llama-swap, vLLM, LocalAI, and other compatible servers alongside native providers.
+Quorum supports any service that uses the OpenAI API format. This lets you use OpenRouter, DeepSeek, Aliyun DashScope, MiniMax, Zhipu AI, Moonshot AI, StepFun, Volcengine Ark, Baidu Qianfan, Tencent TokenHub, Baichuan, LM Studio, llama-swap, vLLM, LocalAI, and other compatible servers alongside native providers.
 
 **OpenRouter** - Access 200+ models through one API:
 ```bash
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_MODELS=anthropic/claude-3-opus,openai/gpt-4o,meta-llama/llama-3.1-70b
+```
+
+**DeepSeek** - Official DeepSeek API (OpenAI-compatible):
+```bash
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_MODELS=deepseek-chat,deepseek-reasoner
+# DEEPSEEK_BASE_URL=https://api.deepseek.com/v1  # Default
+```
+
+**Aliyun DashScope** - Alibaba Cloud Bailian (Model Studio) in compatible mode:
+```bash
+ALIYUN_API_KEY=sk-...
+ALIYUN_MODELS=qwen3.8-max,qwen3.8-flash
+# ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1  # Default
+# Set it to https://<instance>.maas.aliyuncs.com/compatible-mode/v1 for a dedicated MAAS endpoint
+```
+
+**MiniMax** - MiniMax's own OpenAI-compatible endpoint:
+```bash
+MINIMAX_API_KEY=...
+MINIMAX_MODELS=MiniMax-M3.1-Flash,MiniMax-M3
+# MINIMAX_BASE_URL=https://api.minimaxi.com/v1  # Default
+```
+
+**Zhipu AI (GLM)** - Zhipu AI's OpenAI-compatible endpoint (no `/v1` in the path):
+```bash
+ZHIPU_API_KEY=...
+ZHIPU_MODELS=glm-5.3,glm-5.3-flash
+# ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4  # Default
+# International accounts use https://api.z.ai/api/paas/v4
+```
+
+**Moonshot AI (Kimi)** - Moonshot AI's OpenAI-compatible endpoint:
+```bash
+MOONSHOT_API_KEY=sk-...
+MOONSHOT_MODELS=kimi-k3.1-pro,kimi-k3
+# MOONSHOT_BASE_URL=https://api.moonshot.cn/v1  # Default
+```
+
+**StepFun** - StepFun's OpenAI-compatible endpoint:
+```bash
+STEPFUN_API_KEY=sk-...
+STEPFUN_MODELS=step-5-preview,step-3.7-flash
+# STEPFUN_BASE_URL=https://api.stepfun.com/v1  # Default
+```
+
+**Volcengine Ark (Doubao)** - Volcengine Ark's OpenAI-compatible endpoint (uses the official `ARK_API_KEY` / `ARK_MODELS` names, not `VOLCENGINE_*`):
+```bash
+ARK_API_KEY=...
+ARK_MODELS=doubao-seed-2-1-pro-260915,doubao-seed-2-1-lite-260915
+# ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3  # Default
+# Model ids may also be ep-... endpoint ids
+# Models are still selected as volcengine:<model> - only the env vars use the Ark prefix
+```
+
+**Baidu Qianfan (ERNIE)** - Baidu Qianfan's OpenAI-compatible endpoint:
+```bash
+QIANFAN_API_KEY=...
+QIANFAN_MODELS=ernie-5.1,ernie-4.5-turbo-128k
+# QIANFAN_BASE_URL=https://qianfan.baidubce.com/v2  # Default
+```
+
+**Tencent TokenHub** - Tencent's MaaS aggregation entry point:
+```bash
+TOKENHUB_API_KEY=sk-...
+TOKENHUB_MODELS=hy4-preview,hy3
+# TOKENHUB_BASE_URL=https://tokenhub.tencentcloudmaas.com/v1  # Default
+```
+
+**Baichuan** - Baichuan AI's OpenAI-compatible endpoint:
+```bash
+BAICHUAN_API_KEY=sk-...
+BAICHUAN_MODELS=Baichuan4-Turbo,Baichuan4-Air
+# BAICHUAN_BASE_URL=https://api.baichuan-ai.com/v1  # Default
 ```
 
 **LM Studio** - Local models with a GUI (no API key required):
@@ -234,7 +319,9 @@ CUSTOM_MODELS=model-name-1,model-name-2
 CUSTOM_API_KEY=your-key  # If required
 ```
 
-Models from these providers appear in `/models` just like native providers. You can use them together with OpenAI, Anthropic, Google, xAI, and Ollama in the same discussion.
+Models from these providers appear in `/models` just like native providers. You can use them together with OpenAI, Anthropic, Google, xAI, DeepSeek, Aliyun DashScope, MiniMax, Zhipu AI, Moonshot AI, StepFun, Volcengine Ark, Baidu Qianfan, Tencent TokenHub, Baichuan, and Ollama in the same discussion.
+
+A provider shows up in `/models` once its `*_MODELS` list is set - that list is what registers it, not the API key. Using a model still needs its credentials: an API key for OpenRouter, DeepSeek, Aliyun and the Chinese model providers, a base URL for llama-swap and a custom endpoint, and nothing extra for LM Studio. In the MCP catalog (`quorum_list_models`) a provider also needs those credentials to report `ok` instead of `unavailable`.
 
 **Configuration scenarios:**
 

@@ -317,6 +317,126 @@ def _create_model_client_internal(model_id: str) -> ChatClient:
 
     # === OpenAI-compatible providers ===
 
+    elif provider == "deepseek":
+        if not settings.has_deepseek:
+            raise ValueError(
+                "DeepSeek API key not configured. Set DEEPSEEK_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.deepseek_api_key,
+            base_url=settings.deepseek_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "aliyun":
+        if not settings.has_aliyun:
+            raise ValueError(
+                "Aliyun API key not configured. Set ALIYUN_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.aliyun_api_key,
+            base_url=settings.aliyun_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "minimax":
+        if not settings.has_minimax:
+            raise ValueError(
+                "MiniMax API key not configured. Set MINIMAX_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.minimax_api_key,
+            base_url=settings.minimax_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "zhipu":
+        if not settings.has_zhipu:
+            raise ValueError(
+                "Zhipu AI (GLM) API key not configured. Set ZHIPU_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.zhipu_api_key,
+            base_url=settings.zhipu_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "moonshot":
+        if not settings.has_moonshot:
+            raise ValueError(
+                "Moonshot AI (Kimi) API key not configured. Set MOONSHOT_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.moonshot_api_key,
+            base_url=settings.moonshot_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "stepfun":
+        if not settings.has_stepfun:
+            raise ValueError(
+                "StepFun API key not configured. Set STEPFUN_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.stepfun_api_key,
+            base_url=settings.stepfun_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "volcengine":
+        if not settings.has_volcengine:
+            raise ValueError(
+                "Volcengine Ark (Doubao) API key not configured. Set ARK_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.volcengine_api_key,
+            base_url=settings.volcengine_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "qianfan":
+        if not settings.has_qianfan:
+            raise ValueError(
+                "Baidu Qianfan (ERNIE) API key not configured. Set QIANFAN_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.qianfan_api_key,
+            base_url=settings.qianfan_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "baichuan":
+        if not settings.has_baichuan:
+            raise ValueError(
+                "Baichuan API key not configured. Set BAICHUAN_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.baichuan_api_key,
+            base_url=settings.baichuan_base_url,
+            http_client=_get_http_client(),
+        )
+
+    elif provider == "tokenhub":
+        if not settings.has_tokenhub:
+            raise ValueError(
+                "Tencent TokenHub API key not configured. Set TOKENHUB_API_KEY in .env"
+            )
+        return OpenAIClient(
+            model=model_id,
+            api_key=settings.tokenhub_api_key,
+            base_url=settings.tokenhub_base_url,
+            http_client=_get_http_client(),
+        )
+
     elif provider == "openrouter":
         if not settings.has_openrouter:
             raise ValueError(

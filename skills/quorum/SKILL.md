@@ -7,7 +7,8 @@ description: Run a structured debate between agent CLIs (claude, codex, agy, gro
 
 Quorum puts one question to several models. Agent CLIs (claude, codex, agy, grok) research
 read-only in the project and on the web; API and local models configured in `~/.quorum/.env`
-(openai, anthropic, google, xai, openrouter, lmstudio, llamaswap, custom, ollama) see only the
+(openai, anthropic, google, xai, openrouter, deepseek, aliyun, minimax, zhipu, moonshot, stepfun,
+volcengine, qianfan, tokenhub, baichuan, lmstudio, llamaswap, custom, ollama) see only the
 question and any files passed. They debate in structured phases and one participant writes the
 synthesis. Runs
 take minutes and spend the user's subscription quota, which is why a run only starts when the

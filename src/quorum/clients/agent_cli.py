@@ -29,7 +29,7 @@ from .types import Message, SystemMessage, UserMessage
 
 AGENTS = ("claude", "codex", "agy", "grok")
 # API and local providers from ~/.quorum/.env (see README); participants too, but without tools.
-API_PROVIDERS = ("openai", "anthropic", "google", "xai", "openrouter", "lmstudio", "llamaswap", "custom", "ollama")
+API_PROVIDERS = ("openai", "anthropic", "google", "xai", "deepseek", "aliyun", "minimax", "zhipu", "moonshot", "stepfun", "volcengine", "qianfan", "baichuan", "tokenhub", "openrouter", "lmstudio", "llamaswap", "custom", "ollama")
 PROVIDERS = AGENTS + API_PROVIDERS
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 AGENT_EFFORTS = {
